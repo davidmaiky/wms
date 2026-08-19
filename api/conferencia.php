@@ -367,6 +367,52 @@ try {
             retornarDadosConferencia($conferenciaId, $temDivergencia ? "Conferência finalizada com DIVERGÊNCIA." : "Conferência finalizada com SUCESSO!");
             break;
 
+        case 'cancelar':
+            $conferenciaId = (int)($_POST['conferencia_id'] ?? 0);
+            $numeroPedido = (int)($_POST['numero_pedido'] ?? 0);
+            $motivo = trim($_POST['motivo'] ?? 'Cancelado pelo operador');
+            $observacoes = trim($_POST['observacoes'] ?? '');
+            $operador = trim($_POST['operador'] ?? 'Operador');
+
+            if (!$conferenciaId && $numeroPedido) {
+                $stmtFind = $db->prepare("SELECT id FROM conferencias WHERE numero_pedido = ? ORDER BY id DESC LIMIT 1");
+                $stmtFind->execute([$numeroPedido]);
+                $rowF = $stmtFind->fetch();
+                if ($rowF) {
+                    $conferenciaId = (int)$rowF['id'];
+                }
+            }
+
+            if (!$conferenciaId) {
+                jsonError("ID da conferência ou número do pedido não informado.");
+            }
+
+            $stmtConf = $db->prepare("SELECT * FROM conferencias WHERE id = ?");
+            $stmtConf->execute([$conferenciaId]);
+            $conf = $stmtConf->fetch();
+            if (!$conf) {
+                jsonError("Conferência #$conferenciaId não encontrada.", 404);
+            }
+
+            $obsFinal = !empty($observacoes) ? "[$motivo] $observacoes" : $motivo;
+
+            $stmtUp = $db->prepare("
+                UPDATE conferencias 
+                SET status = 'cancelado', observacoes = ?, data_fim = CURRENT_TIMESTAMP, atualizado_em = CURRENT_TIMESTAMP, operador = COALESCE(?, operador)
+                WHERE id = ?
+            ");
+            $stmtUp->execute([$obsFinal, $operador, $conferenciaId]);
+
+            // Registrar log de auditoria
+            $stmtLog = $db->prepare("
+                INSERT INTO logs_bipagem (conferencia_id, codigo_bipado, codigo_produto_identificado, tipo_leitura, resultado, operador)
+                VALUES (?, 'CANCELAMENTO', NULL, 'manual', 'cancelado', ?)
+            ");
+            $stmtLog->execute([$conferenciaId, $operador]);
+
+            retornarDadosConferencia($conferenciaId, "Separação do pedido #{$conf['numero_pedido']} cancelada com sucesso.");
+            break;
+
         case 'reiniciar':
             $conferenciaId = (int)($_POST['conferencia_id'] ?? 0);
             if (!$conferenciaId) jsonError("ID da conferência não informado.");

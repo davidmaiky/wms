@@ -201,6 +201,19 @@ const App = {
                 badgeWms = '<span class="badge badge-danger"><i class="fa-solid fa-triangle-exclamation"></i> Divergência</span>';
                 btnActionText = '<i class="fa-solid fa-triangle-exclamation"></i> Revisar';
                 btnActionClass = 'btn-danger';
+            } else if (conf.conferencia_status === 'cancelado') {
+                badgeWms = '<span class="badge badge-danger"><i class="fa-solid fa-ban"></i> Cancelado</span>';
+                btnActionText = '<i class="fa-solid fa-rotate-right"></i> Reiniciar';
+                btnActionClass = 'btn-secondary';
+            }
+
+            let btnCancelarHtml = '';
+            if (conf.conferencia_status === 'em_separacao' || conf.conferencia_status === 'divergencia') {
+                btnCancelarHtml = `
+                    <button class="btn btn-sm btn-danger" onclick="App.abrirModalCancelarConferencia(${conf.conferencia_id || 0}, ${numPedido})" title="Cancelar Separação do Pedido #${numPedido}">
+                        <i class="fa-solid fa-ban"></i> Cancelar
+                    </button>
+                `;
             }
 
             html += `
@@ -222,6 +235,7 @@ const App = {
                         <button class="btn btn-sm btn-secondary" onclick="App.abrirRomaneio(${numPedido})" title="Visualizar Romaneio do Pedido #${numPedido}">
                             <i class="fa-solid fa-file-invoice"></i> Romaneio
                         </button>
+                        ${btnCancelarHtml}
                         <button class="btn btn-sm ${btnActionClass}" onclick="App.iniciarConferencia(${numPedido})">
                             ${btnActionText}
                         </button>
@@ -293,6 +307,9 @@ const App = {
         } else if (conf.status === 'divergencia') {
             badgeElem.className = 'badge badge-danger';
             badgeElem.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Divergência';
+        } else if (conf.status === 'cancelado') {
+            badgeElem.className = 'badge badge-danger';
+            badgeElem.innerHTML = '<i class="fa-solid fa-ban"></i> Cancelado';
         } else {
             badgeElem.className = 'badge badge-progress';
             badgeElem.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Em Separação';
@@ -654,6 +671,74 @@ const App = {
         }
     },
 
+    abrirModalCancelarConferencia(confId = null, numeroPedido = null) {
+        const id = confId || (this.conferenciaAtiva?.conferencia?.id ?? null);
+        const numPed = numeroPedido || (this.conferenciaAtiva?.conferencia?.numero_pedido ?? '---');
+
+        if (!id && !numeroPedido) {
+            this.toast('Nenhuma conferência selecionada para cancelar.', 'warning');
+            return;
+        }
+
+        document.getElementById('cancelarConferenciaId').value = id || '';
+        document.getElementById('cancelarNumeroPedido').value = (numPed !== '---') ? numPed : '';
+        document.getElementById('lblCancelarNumeroPedido').textContent = `#${numPed}`;
+        document.getElementById('cancelarMotivo').selectedIndex = 0;
+        document.getElementById('cancelarObservacoes').value = '';
+
+        document.getElementById('modalCancelarSeparacao').classList.add('active');
+    },
+
+    async confirmarCancelamentoSeparacao(event) {
+        if (event) event.preventDefault();
+
+        const confId = document.getElementById('cancelarConferenciaId').value;
+        const numPedido = document.getElementById('cancelarNumeroPedido').value;
+        const motivo = document.getElementById('cancelarMotivo').value;
+        const observacoes = document.getElementById('cancelarObservacoes').value.trim();
+
+        this.fecharModais();
+        this.toast('Processando cancelamento...', 'info');
+
+        try {
+            const res = await fetch('api/conferencia.php?action=cancelar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    conferencia_id: confId ? parseInt(confId) : 0,
+                    numero_pedido: numPedido ? parseInt(numPedido) : 0,
+                    motivo: motivo,
+                    observacoes: observacoes,
+                    operador: this.operador
+                })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                this.toast(data.message, 'success');
+                if (typeof AudioSystem !== 'undefined') {
+                    AudioSystem.playAlert();
+                }
+
+                if (this.conferenciaAtiva && (this.conferenciaAtiva.conferencia.id == confId || this.conferenciaAtiva.conferencia.numero_pedido == numPedido)) {
+                    this.conferenciaAtiva = data;
+                    this.renderConferencia(data);
+                }
+
+                this.carregarStats();
+                if (document.getElementById('view-pedidos').classList.contains('active')) {
+                    this.buscarPedidos();
+                } else if (document.getElementById('view-historico').classList.contains('active')) {
+                    this.carregarHistorico();
+                }
+            } else {
+                this.toast(data.error || 'Erro ao cancelar conferência.', 'error');
+            }
+        } catch (e) {
+            this.toast('Erro de comunicação ao cancelar separação.', 'error');
+        }
+    },
+
     async reiniciarConferencia() {
         if (!this.conferenciaAtiva) return;
         if (!confirm('Tem certeza que deseja ZERAR toda a contagem deste pedido e reiniciar a separação?')) return;
@@ -693,6 +778,9 @@ const App = {
             statusBg = '#10b981';
         } else if (conf.status === 'divergencia') {
             statusBadge = 'Com Divergência';
+            statusBg = '#ef4444';
+        } else if (conf.status === 'cancelado') {
+            statusBadge = 'Cancelado';
             statusBg = '#ef4444';
         } else if (conf.status === 'pendente') {
             statusBadge = 'Pendente';
@@ -977,6 +1065,7 @@ const App = {
                 let badge = '<span class="badge badge-progress">Em Separação</span>';
                 if (c.status === 'conferido') badge = '<span class="badge badge-success">100% Conferido</span>';
                 else if (c.status === 'divergencia') badge = '<span class="badge badge-danger">Divergência</span>';
+                else if (c.status === 'cancelado') badge = '<span class="badge badge-danger">Cancelado</span>';
 
                 html += `
                     <tr>

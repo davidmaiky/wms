@@ -282,6 +282,9 @@
                                 <button class="btn btn-secondary" onclick="App.reiniciarConferencia()" title="Zerar contagem">
                                     <i class="fa-solid fa-rotate-left"></i> Zerar
                                 </button>
+                                <button class="btn btn-danger" id="btnCancelarConferencia" onclick="App.abrirModalCancelarConferencia()" title="Cancelar Separação deste Pedido">
+                                    <i class="fa-solid fa-ban"></i> Cancelar
+                                </button>
                                 <button class="btn btn-success" id="btnFinalizarConferencia" onclick="App.finalizarConferencia()">
                                     <i class="fa-solid fa-check-double"></i> Finalizar Pedido
                                 </button>
@@ -327,6 +330,7 @@
                             <option value="conferido">100% Conferido</option>
                             <option value="divergencia">Com Divergência</option>
                             <option value="em_separacao">Em Separação</option>
+                            <option value="cancelado">Cancelado</option>
                         </select>
                     </div>
 
@@ -522,6 +526,48 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-primary" onclick="App.salvarOperadorAtual()">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Cancelar Separação -->
+    <div class="modal-overlay" id="modalCancelarSeparacao">
+        <div class="modal-card" style="max-width: 480px;">
+            <div class="modal-header" style="border-bottom: 1px solid var(--color-danger-border);">
+                <h3 style="color: var(--color-danger);"><i class="fa-solid fa-ban"></i> Cancelar Separação</h3>
+                <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="formCancelarSeparacao" onsubmit="App.confirmarCancelamentoSeparacao(event)">
+                    <input type="hidden" id="cancelarConferenciaId">
+                    <input type="hidden" id="cancelarNumeroPedido">
+                    
+                    <p style="color: var(--text-secondary); margin-bottom: 1.25rem; font-size: 0.9rem;">
+                        Você está prestes a cancelar a separação do pedido <strong id="lblCancelarNumeroPedido" style="color: #fff;">#---</strong>.
+                    </p>
+
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label for="cancelarMotivo"><i class="fa-solid fa-list-check"></i> Motivo do Cancelamento</label>
+                        <select id="cancelarMotivo" class="select-control" required>
+                            <option value="Desistência do cliente">Desistência do cliente</option>
+                            <option value="Falta de estoque / Produto avariado">Falta de estoque / Produto avariado</option>
+                            <option value="Pedido alterado no ERP">Pedido alterado no ERP</option>
+                            <option value="Pedido duplicado">Pedido duplicado</option>
+                            <option value="Erro operacional / Reagendamento">Erro operacional / Reagendamento</option>
+                            <option value="Outro motivo">Outro motivo</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 1.5rem;">
+                        <label for="cancelarObservacoes"><i class="fa-solid fa-comment"></i> Observações adicionais (Opcional)</label>
+                        <textarea id="cancelarObservacoes" class="input-control" rows="3" placeholder="Detalhes sobre o cancelamento..."></textarea>
+                    </div>
+
+                    <div class="modal-footer" style="padding: 0; background: none; border: none; display: flex; gap: 0.75rem; justify-content: flex-end;">
+                        <button type="button" class="btn btn-secondary" onclick="App.fecharModais()">Voltar</button>
+                        <button type="submit" class="btn btn-danger"><i class="fa-solid fa-ban"></i> Confirmar Cancelamento</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
