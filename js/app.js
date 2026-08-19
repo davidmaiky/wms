@@ -19,7 +19,7 @@ const App = {
         window.soundEngine.setEnabled(this.soundEnabled);
         this.updateSoundIcon();
 
-        document.getElementById('lblOperadorHeader').textContent = this.operador;
+        this.atualizarOperadorHeader();
 
         this.scanner = new ScannerManager((code, type) => {
             this.handleBarcodeScan(code, type);
@@ -40,6 +40,69 @@ const App = {
                     this.biparManual();
                 }
             });
+        }
+    },
+
+    atualizarOperadorHeader() {
+        const lbl = document.getElementById('lblOperadorHeader');
+        if (lbl) lbl.textContent = this.operador || 'Operador';
+        const mini = document.getElementById('avatarMiniHeader');
+        if (mini) mini.textContent = (this.operador || 'O').charAt(0).toUpperCase();
+    },
+
+    toggleFullscreen() {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => {
+                console.warn('Fullscreen error:', err);
+            });
+            const icon = document.getElementById('iconFullscreen');
+            if (icon) icon.className = 'fa-solid fa-compress';
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
+            const icon = document.getElementById('iconFullscreen');
+            if (icon) icon.className = 'fa-solid fa-expand';
+        }
+    },
+
+    aplicarFiltroRapido(status) {
+        document.querySelectorAll('.filter-chip').forEach(chip => {
+            chip.classList.toggle('active', chip.getAttribute('data-status-filter') === status);
+        });
+        const select = document.getElementById('filtroStatus');
+        if (select) select.value = status;
+        this.buscarPedidos();
+    },
+
+    async copiarTexto(texto) {
+        try {
+            await navigator.clipboard.writeText(texto);
+            this.toast(`Copiado para área de transferência: ${texto}`, 'success');
+        } catch (e) {
+            this.toast(`Código: ${texto}`, 'info');
+        }
+    },
+
+    showScanFeedback(msg, type = 'success') {
+        const banner = document.getElementById('scanStatusBanner');
+        if (!banner) return;
+        banner.style.display = 'block';
+        if (type === 'success') {
+            banner.style.background = 'rgba(16, 185, 129, 0.15)';
+            banner.style.border = '1px solid rgba(16, 185, 129, 0.35)';
+            banner.style.color = '#34d399';
+            banner.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${msg}`;
+        } else if (type === 'warning') {
+            banner.style.background = 'rgba(245, 158, 11, 0.15)';
+            banner.style.border = '1px solid rgba(245, 158, 11, 0.35)';
+            banner.style.color = '#fbbf24';
+            banner.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${msg}`;
+        } else {
+            banner.style.background = 'rgba(239, 68, 68, 0.15)';
+            banner.style.border = '1px solid rgba(239, 68, 68, 0.35)';
+            banner.style.color = '#f87171';
+            banner.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> ${msg}`;
         }
     },
 
@@ -164,8 +227,15 @@ const App = {
         if (!pedidos || pedidos.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="8" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
-                        <i class="fa-solid fa-box-open fa-2x"></i><br><br>Nenhum pedido encontrado no SIGE Cloud com os filtros informados.
+                    <td colspan="8" style="text-align: center; padding: 3rem 1.5rem; color: var(--text-muted);">
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 0.75rem;">
+                            <i class="fa-solid fa-box-open fa-3x" style="color: #475569;"></i>
+                            <h4 style="color: var(--text-secondary); font-size: 1.05rem;">Nenhum pedido encontrado</h4>
+                            <p style="font-size: 0.85rem; max-width: 400px;">Tente alterar os filtros de data, status ou número de pedido.</p>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="App.limparFiltros()">
+                                <i class="fa-solid fa-rotate-left"></i> Limpar Filtros
+                            </button>
+                        </div>
                     </td>
                 </tr>
             `;
@@ -179,13 +249,15 @@ const App = {
             const dataFormatada = p.Data ? new Date(p.Data).toLocaleDateString('pt-BR') : '-';
             const totalItens = (p.Items || []).length;
             const totalQtd = (p.Items || []).reduce((acc, item) => acc + (parseFloat(item.Quantidade) || 0), 0);
+            const clienteNome = p.Cliente || 'Consumidor Final';
+            const clienteInitials = clienteNome.substring(0, 2).toUpperCase();
 
             // Badge Status SIGE
             let badgeSige = '<span class="badge badge-pending">Orçamento</span>';
             const stSige = p.StatusSistema || p.Status || '';
-            if (stSige.includes('Aprovado')) badgeSige = '<span class="badge badge-progress">Aprovado</span>';
-            else if (stSige.includes('Faturado')) badgeSige = '<span class="badge badge-success">Faturado</span>';
-            else if (stSige.includes('Cancelado')) badgeSige = '<span class="badge badge-danger">Cancelado</span>';
+            if (stSige.includes('Aprovado')) badgeSige = '<span class="badge badge-progress"><i class="fa-solid fa-check"></i> Aprovado</span>';
+            else if (stSige.includes('Faturado')) badgeSige = '<span class="badge badge-success"><i class="fa-solid fa-truck"></i> Faturado</span>';
+            else if (stSige.includes('Cancelado')) badgeSige = '<span class="badge badge-danger"><i class="fa-solid fa-ban"></i> Cancelado</span>';
 
             // Badge Status WMS
             let badgeWms = '<span class="badge badge-pending"><i class="fa-regular fa-clock"></i> Pendente</span>';
@@ -198,7 +270,7 @@ const App = {
                 btnActionClass = 'btn-primary';
             } else if (conf.conferencia_status === 'conferido') {
                 badgeWms = '<span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> 100% Conferido</span>';
-                btnActionText = '<i class="fa-solid fa-eye"></i> Visualizar';
+                btnActionText = '<i class="fa-solid fa-eye"></i> Ver';
                 btnActionClass = 'btn-secondary';
             } else if (conf.conferencia_status === 'divergencia') {
                 badgeWms = '<span class="badge badge-danger"><i class="fa-solid fa-triangle-exclamation"></i> Divergência</span>';
@@ -214,34 +286,50 @@ const App = {
             if (conf.conferencia_status === 'em_separacao' || conf.conferencia_status === 'divergencia') {
                 btnCancelarHtml = `
                     <button class="btn btn-sm btn-danger" onclick="App.abrirModalCancelarConferencia(${conf.conferencia_id || 0}, ${numPedido})" title="Cancelar Separação do Pedido #${numPedido}">
-                        <i class="fa-solid fa-ban"></i> Cancelar
+                        <i class="fa-solid fa-ban"></i>
                     </button>
                 `;
             }
 
             html += `
                 <tr>
-                    <td><strong class="font-mono" style="font-size: 1.05rem; color: #fff;">#${numPedido}</strong></td>
-                    <td style="color: var(--text-secondary);">${dataFormatada}</td>
                     <td>
-                        <strong style="color: var(--text-primary); display: block;">${p.Cliente || 'Consumidor Final'}</strong>
-                        <span style="font-size: 0.75rem; color: var(--text-muted);">${p.ClienteCNPJ || ''}</span>
+                        <div style="display: flex; align-items: center; gap: 0.45rem;">
+                            <strong class="font-mono" style="font-size: 1.05rem; color: #60a5fa; cursor: pointer;" onclick="App.copiarTexto('${numPedido}')" title="Clique para copiar número">#${numPedido}</strong>
+                            <i class="fa-regular fa-copy" style="font-size: 0.75rem; color: var(--text-muted); cursor: pointer;" onclick="App.copiarTexto('${numPedido}')" title="Copiar"></i>
+                        </div>
+                    </td>
+                    <td style="color: var(--text-secondary); font-size: 0.85rem;">${dataFormatada}</td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 0.65rem;">
+                            <div style="width: 32px; height: 32px; border-radius: var(--radius-full); background: rgba(59, 130, 246, 0.15); color: #60a5fa; font-weight: 700; font-size: 0.78rem; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(59, 130, 246, 0.3); flex-shrink: 0;">
+                                ${clienteInitials}
+                            </div>
+                            <div>
+                                <strong style="color: var(--text-primary); display: block; font-size: 0.9rem;">${clienteNome}</strong>
+                                <span style="font-size: 0.75rem; color: var(--text-muted);">${p.ClienteCNPJ || ''}</span>
+                            </div>
+                        </div>
                     </td>
                     <td>${badgeSige}</td>
                     <td>
-                        <span>${totalItens} itens</span>
-                        <span style="color: var(--text-muted); font-size: 0.75rem; display: block;">(${totalQtd} un)</span>
+                        <div style="display: flex; flex-direction: column;">
+                            <strong style="color: var(--text-primary); font-size: 0.88rem;">${totalItens} ${totalItens === 1 ? 'item' : 'itens'}</strong>
+                            <span style="color: var(--text-secondary); font-size: 0.78rem;">${totalQtd} un</span>
+                        </div>
                     </td>
                     <td>${badgeWms}</td>
-                    <td style="color: var(--text-secondary);">${conf.operador || '-'}</td>
+                    <td style="color: var(--text-secondary); font-size: 0.85rem;">${conf.operador || '<span style="color: var(--text-muted);">-</span>'}</td>
                     <td style="text-align: right; white-space: nowrap;">
-                        <button class="btn btn-sm btn-secondary" onclick="App.abrirRomaneio(${numPedido})" title="Visualizar Romaneio do Pedido #${numPedido}">
-                            <i class="fa-solid fa-file-invoice"></i> Romaneio
-                        </button>
-                        ${btnCancelarHtml}
-                        <button class="btn btn-sm ${btnActionClass}" onclick="App.iniciarConferencia(${numPedido})">
-                            ${btnActionText}
-                        </button>
+                        <div style="display: inline-flex; gap: 0.4rem;">
+                            <button class="btn btn-sm btn-secondary" onclick="App.abrirRomaneio(${numPedido})" title="Visualizar Romaneio do Pedido #${numPedido}">
+                                <i class="fa-solid fa-file-invoice"></i> Romaneio
+                            </button>
+                            ${btnCancelarHtml}
+                            <button class="btn btn-sm ${btnActionClass}" onclick="App.iniciarConferencia(${numPedido})">
+                                ${btnActionText}
+                            </button>
+                        </div>
                     </td>
                 </tr>
             `;
@@ -338,7 +426,7 @@ const App = {
     renderItensList(itens) {
         const container = document.getElementById('itensPickingList');
         if (!itens || itens.length === 0) {
-            container.innerHTML = '<p style="text-align: center; color: var(--text-muted);">Nenhum item no pedido.</p>';
+            container.innerHTML = '<p style="text-align: center; color: var(--text-muted); padding: 2rem;">Nenhum item cadastrado no pedido.</p>';
             return;
         }
 
@@ -349,20 +437,29 @@ const App = {
             const isDone = qtdConf >= qtdPed;
 
             let cardStatusClass = 'status-pendente';
-            if (isDone) cardStatusClass = 'status-conferido';
-            else if (qtdConf > 0) cardStatusClass = 'status-parcial';
+            let statusBadgeHtml = '<span class="badge badge-pending"><i class="fa-regular fa-clock"></i> Pendente</span>';
+            if (isDone) {
+                cardStatusClass = 'status-conferido';
+                statusBadgeHtml = '<span class="badge badge-success"><i class="fa-solid fa-check"></i> Concluído</span>';
+            } else if (qtdConf > 0) {
+                cardStatusClass = 'status-parcial';
+                statusBadgeHtml = `<span class="badge badge-progress"><i class="fa-solid fa-spinner fa-spin"></i> ${qtdConf}/${qtdPed}</span>`;
+            }
 
             const displayQtdEsperada = this.modoCego ? '?' : qtdPed;
 
             html += `
                 <div class="item-picking-card ${cardStatusClass}" id="item-card-${it.codigo_produto}">
                     <div class="item-details">
-                        <h4>${it.descricao}</h4>
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.35rem;">
+                            <h4>${it.descricao}</h4>
+                            ${statusBadgeHtml}
+                        </div>
                         <div class="item-meta">
-                            <span>SKU: <strong class="font-mono">${it.codigo_produto}</strong></span>
-                            <span>EAN: <strong class="font-mono">${it.ean || '<i style="color:var(--text-muted)">Sem EAN</i>'}</strong></span>
+                            <span>SKU: <strong class="font-mono" style="cursor: pointer; color: #60a5fa;" onclick="App.copiarTexto('${it.codigo_produto}')" title="Clique para copiar SKU">${it.codigo_produto} <i class="fa-regular fa-copy" style="font-size:0.7rem;"></i></strong></span>
+                            <span>EAN: <strong class="font-mono" style="${it.ean ? 'cursor: pointer; color: #34d399;' : ''}" ${it.ean ? `onclick="App.copiarTexto('${it.ean}')" title="Clique para copiar EAN"` : ''}>${it.ean || '<i style="color:var(--text-muted)">Sem EAN</i>'} ${it.ean ? '<i class="fa-regular fa-copy" style="font-size:0.7rem;"></i>' : ''}</strong></span>
                             ${it.categoria ? `<span>Cat: <strong>${it.categoria}</strong></span>` : ''}
-                            <span>Unidade: <strong>${it.unidade || 'UN'}</strong></span>
+                            <span>Un: <strong>${it.unidade || 'UN'}</strong></span>
                         </div>
                     </div>
 
@@ -392,17 +489,22 @@ const App = {
         document.getElementById('lblTotalVolumes').textContent = volumes.length;
 
         if (!volumes || volumes.length === 0) {
-            container.innerHTML = '<span style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding: 0.5rem;">Nenhum volume embalado ainda.</span>';
+            container.innerHTML = '<span style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding: 0.75rem 0.5rem; display: block;">Nenhum volume embalado ainda.</span>';
             return;
         }
 
         let html = '';
         volumes.forEach(v => {
             html += `
-                <div style="background: var(--bg-card); padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <strong style="font-size: 0.85rem;">Volume ${v.numero_volume}/${v.total_volumes}</strong>
-                        <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">${v.peso_kg} KG ${v.dimensoes ? '• ' + v.dimensoes : ''}</span>
+                <div style="background: rgba(15, 23, 42, 0.7); padding: 0.65rem 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; transition: var(--transition);">
+                    <div style="display: flex; align-items: center; gap: 0.65rem;">
+                        <div style="width: 32px; height: 32px; border-radius: var(--radius-sm); background: rgba(59, 130, 246, 0.15); color: #60a5fa; display: flex; align-items: center; justify-content: center; font-size: 0.85rem;">
+                            <i class="fa-solid fa-box"></i>
+                        </div>
+                        <div>
+                            <strong style="font-size: 0.88rem; color: var(--text-primary);">Volume ${v.numero_volume}/${v.total_volumes}</strong>
+                            <span style="font-size: 0.75rem; color: var(--text-secondary); display: block;">${v.peso_kg} KG ${v.dimensoes ? '• ' + v.dimensoes : ''}</span>
+                        </div>
                     </div>
                     <div style="display: flex; gap: 0.35rem;">
                         <button class="btn btn-secondary btn-sm btn-icon" onclick="App.imprimirEtiquetaVolume(${v.id})" title="Imprimir Etiqueta">
@@ -432,6 +534,7 @@ const App = {
     async handleBarcodeScan(code, type = 'camera') {
         if (!this.conferenciaAtiva || !this.conferenciaAtiva.conferencia) {
             this.toast('Abra um pedido para bipar itens.', 'warning');
+            this.showScanFeedback('Abra um pedido para bipar itens.', 'warning');
             return;
         }
 
@@ -454,7 +557,9 @@ const App = {
 
             if (!data.success) {
                 window.soundEngine.playError();
-                this.toast(data.message || 'Código não confere!', 'error');
+                const msg = data.message || `Código não confere: ${code}`;
+                this.toast(msg, 'error');
+                this.showScanFeedback(msg, 'error');
                 return;
             }
 
@@ -462,13 +567,16 @@ const App = {
             this.conferenciaAtiva = data;
             this.renderConferencia(data);
 
+            const feedbackMsg = `Bipado com sucesso: ${code}`;
+            this.showScanFeedback(feedbackMsg, 'success');
+
             // Animar o item conferido
             if (data.item_bipado) {
                 const elem = document.getElementById(`item-card-${data.item_bipado}`);
                 if (elem) {
                     elem.classList.add('just-scanned');
                     elem.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    setTimeout(() => elem.classList.remove('just-scanned'), 600);
+                    setTimeout(() => elem.classList.remove('just-scanned'), 700);
                 }
             }
 
@@ -477,17 +585,19 @@ const App = {
             if (conf.quantidade_total_conferida >= conf.quantidade_total_esperada && conf.quantidade_total_esperada > 0) {
                 window.soundEngine.playOrderComplete();
                 this.toast('🎉 Parabéns! Pedido 100% conferido e separado!', 'success');
+                this.showScanFeedback('🎉 Pedido 100% conferido!', 'success');
             } else if (data.item_concluido) {
                 window.soundEngine.playItemDone();
-                this.toast(data.message, 'success');
+                this.toast(`Item ${data.item_bipado || ''} concluído!`, 'success');
             } else {
                 window.soundEngine.playSuccess();
-                this.toast(data.message, 'success');
             }
 
         } catch (e) {
+            console.error('Erro na requisição de bipagem:', e);
             window.soundEngine.playError();
-            this.toast('Erro na comunicação do leitor com o servidor.', 'error');
+            this.toast('Erro de comunicação com o servidor.', 'error');
+            this.showScanFeedback('Erro de comunicação ao validar código.', 'error');
         }
     },
 

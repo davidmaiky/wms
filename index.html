@@ -24,7 +24,7 @@
                     <i class="fa-solid fa-boxes-packing"></i>
                 </div>
                 <div class="brand-title">
-                    <h1>WMS LOGÍSTICA</h1>
+                    <h1>WMS PRIME <span class="brand-status-chip"><span class="status-dot"></span> Online</span></h1>
                     <span>Conferência & Separação SIGE Cloud</span>
                 </div>
             </div>
@@ -54,11 +54,14 @@
             <!-- Header Actions -->
             <div class="header-actions">
                 <div class="operator-badge" onclick="App.modalOperador()" style="cursor: pointer;" title="Alterar operador">
-                    <i class="fa-solid fa-user-gear"></i>
-                    <span>Operador: <strong id="lblOperadorHeader">David</strong></span>
+                    <div class="operator-avatar-mini" id="avatarMiniHeader">D</div>
+                    <span><strong id="lblOperadorHeader">David</strong></span>
                 </div>
                 <button class="btn btn-secondary btn-icon" id="btnToggleSound" onclick="App.toggleSound()" title="Ativar/Desativar Sons">
                     <i class="fa-solid fa-volume-high" id="iconSound"></i>
+                </button>
+                <button class="btn btn-secondary btn-icon" onclick="App.toggleFullscreen()" title="Tela Cheia (F11)">
+                    <i class="fa-solid fa-expand" id="iconFullscreen"></i>
                 </button>
             </div>
         </div>
@@ -116,6 +119,15 @@
 
             <!-- Filtros de Busca de Pedidos SIGE -->
             <div class="filter-card">
+                <!-- Quick Filter Chips -->
+                <div class="quick-filter-chips">
+                    <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-right: 0.35rem;"><i class="fa-solid fa-bolt"></i> Filtro:</span>
+                    <button type="button" class="filter-chip active" data-status-filter="" onclick="App.aplicarFiltroRapido('')">Todos</button>
+                    <button type="button" class="filter-chip" data-status-filter="Pedido Aprovado" onclick="App.aplicarFiltroRapido('Pedido Aprovado')"><i class="fa-solid fa-check"></i> Aprovados</button>
+                    <button type="button" class="filter-chip" data-status-filter="Pedido Faturado" onclick="App.aplicarFiltroRapido('Pedido Faturado')"><i class="fa-solid fa-truck"></i> Faturados</button>
+                    <button type="button" class="filter-chip" data-status-filter="Orçamento" onclick="App.aplicarFiltroRapido('Orçamento')"><i class="fa-regular fa-file-lines"></i> Orçamentos</button>
+                </div>
+
                 <form id="formFiltroPedidos" onsubmit="App.buscarPedidos(event)">
                     <div class="filter-grid">
                         <div class="form-group">
@@ -153,7 +165,7 @@
                             <button type="submit" class="btn btn-primary" id="btnBuscarPedidos">
                                 <i class="fa-solid fa-magnifying-glass"></i> Buscar
                             </button>
-                            <button type="button" class="btn btn-secondary" onclick="App.limparFiltros()">
+                            <button type="button" class="btn btn-secondary" onclick="App.limparFiltros()" title="Limpar Filtros">
                                 <i class="fa-solid fa-rotate-left"></i>
                             </button>
                         </div>
@@ -241,12 +253,13 @@
                             </label>
                             <div style="display: flex; gap: 0.5rem;">
                                 <input type="text" id="inputManualBarcode" class="input-control font-mono" placeholder="Bipe aqui ou digite..." autofocus>
-                                <button class="btn btn-primary" onclick="App.biparManual()">
+                                <button class="btn btn-primary" onclick="App.biparManual()" title="Confirmar Bipagem">
                                     <i class="fa-solid fa-check"></i>
                                 </button>
                             </div>
-                            <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
-                                <i class="fa-solid fa-circle-info"></i> Pistolas USB/Bluetooth são detectadas automaticamente em qualquer parte da tela.
+                            <div id="scanStatusBanner" style="display: none; padding: 0.6rem 0.85rem; border-radius: var(--radius-md); font-size: 0.82rem; font-weight: 600; text-align: center; margin-top: 0.5rem;"></div>
+                            <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem; display: flex; align-items: center; gap: 0.35rem;">
+                                <i class="fa-solid fa-circle-info"></i> Pistolas USB/Bluetooth e leitores de código de barras são detectados automaticamente.
                             </span>
                         </div>
                     </div>
