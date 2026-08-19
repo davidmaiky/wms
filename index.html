@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WMS Prime - Conferência & Separação Logística</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- JsBarcode for barcode generation -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <!-- QRCode generator -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <!-- Local HTML5-QRCode Scanner -->
+    <script src="js/html5-qrcode.min.js"></script>
+</head>
+<body>
+
+    <!-- App Header -->
+    <header class="app-header">
+        <div class="header-container">
+            <div class="brand-wrapper" onclick="App.navigate('pedidos')">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-boxes-packing"></i>
+                </div>
+                <div class="brand-title">
+                    <h1>WMS LOGÍSTICA</h1>
+                    <span>Conferência & Separação SIGE Cloud</span>
+                </div>
+            </div>
+
+            <!-- Navigation Menu -->
+            <nav class="nav-menu">
+                <button class="nav-btn active" data-view="pedidos" onclick="App.navigate('pedidos')">
+                    <i class="fa-solid fa-clipboard-list"></i> Pedidos
+                </button>
+                <button class="nav-btn" data-view="conferencia" id="btnNavConferencia" onclick="App.navigate('conferencia')">
+                    <i class="fa-solid fa-barcode"></i> Separação
+                </button>
+                <button class="nav-btn" data-view="historico" onclick="App.navigate('historico')">
+                    <i class="fa-solid fa-clock-rotate-left"></i> Histórico
+                </button>
+                <button class="nav-btn" data-view="eans" onclick="App.navigate('eans')">
+                    <i class="fa-solid fa-tags"></i> De-Para EAN
+                </button>
+                <button class="nav-btn" data-view="config" onclick="App.navigate('config')">
+                    <i class="fa-solid fa-gear"></i> Ajustes
+                </button>
+            </nav>
+
+            <!-- Header Actions -->
+            <div class="header-actions">
+                <div class="operator-badge" onclick="App.modalOperador()" style="cursor: pointer;" title="Alterar operador">
+                    <i class="fa-solid fa-user-gear"></i>
+                    <span>Operador: <strong id="lblOperadorHeader">David</strong></span>
+                </div>
+                <button class="btn btn-secondary btn-icon" id="btnToggleSound" onclick="App.toggleSound()" title="Ativar/Desativar Sons">
+                    <i class="fa-solid fa-volume-high" id="iconSound"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+
+        <!-- ===================================================================
+             VIEW 1: PEDIDOS & DASHBOARD
+             =================================================================== -->
+        <section id="view-pedidos" class="view-section active">
+            <!-- KPI Cards -->
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-icon blue">
+                        <i class="fa-solid fa-truck-ramp-box"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <h3>Total Conferências</h3>
+                        <div class="kpi-value" id="kpiTotalConferencias">0</div>
+                    </div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-icon green">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <h3>Conferidos Hoje</h3>
+                        <div class="kpi-value" id="kpiConferidosHoje">0</div>
+                    </div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-icon yellow">
+                        <i class="fa-solid fa-dolly"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <h3>Em Separação</h3>
+                        <div class="kpi-value" id="kpiEmSeparacao">0</div>
+                    </div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-icon red">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <h3>Divergências</h3>
+                        <div class="kpi-value" id="kpiDivergencias">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filtros de Busca de Pedidos SIGE -->
+            <div class="filter-card">
+                <form id="formFiltroPedidos" onsubmit="App.buscarPedidos(event)">
+                    <div class="filter-grid">
+                        <div class="form-group">
+                            <label for="filtroCodigo"><i class="fa-solid fa-hashtag"></i> Nº Pedido</label>
+                            <input type="number" id="filtroCodigo" class="input-control" placeholder="Ex: 161">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="filtroCliente"><i class="fa-solid fa-user"></i> Cliente</label>
+                            <input type="text" id="filtroCliente" class="input-control" placeholder="Nome ou CNPJ...">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="filtroStatus"><i class="fa-solid fa-filter"></i> Status SIGE</label>
+                            <select id="filtroStatus" class="select-control">
+                                <option value="">Todos os Status</option>
+                                <option value="Pedido Aprovado">Pedido Aprovado</option>
+                                <option value="Pedido Faturado">Pedido Faturado</option>
+                                <option value="Orçamento">Orçamento</option>
+                                <option value="Pedido Cancelado">Pedido Cancelado</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="filtroDataInicial"><i class="fa-regular fa-calendar"></i> De</label>
+                            <input type="date" id="filtroDataInicial" class="input-control">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="filtroDataFinal"><i class="fa-regular fa-calendar"></i> Até</label>
+                            <input type="date" id="filtroDataFinal" class="input-control">
+                        </div>
+
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button type="submit" class="btn btn-primary" id="btnBuscarPedidos">
+                                <i class="fa-solid fa-magnifying-glass"></i> Buscar
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="App.limparFiltros()">
+                                <i class="fa-solid fa-rotate-left"></i>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Tabela de Pedidos -->
+            <div class="table-container">
+                <table class="wms-table">
+                    <thead>
+                        <tr>
+                            <th>Pedido</th>
+                            <th>Data</th>
+                            <th>Cliente</th>
+                            <th>Status SIGE</th>
+                            <th>Itens</th>
+                            <th>Status WMS</th>
+                            <th>Operador</th>
+                            <th style="text-align: right;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pedidosTableBody">
+                        <tr>
+                            <td colspan="8" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+                                <i class="fa-solid fa-spinner fa-spin fa-2x"></i><br><br>Carregando pedidos do SIGE Cloud...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+
+        <!-- ===================================================================
+             VIEW 2: SEPARAÇÃO & CONFERÊNCIA ATIVA
+             =================================================================== -->
+        <section id="view-conferencia" class="view-section">
+            <div id="conferenciaVazia" style="display: none; text-align: center; padding: 4rem 1rem;">
+                <i class="fa-solid fa-barcode fa-4x" style="color: var(--text-muted); margin-bottom: 1rem;"></i>
+                <h2>Nenhuma Conferência em Andamento</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Selecione um pedido na listagem para iniciar a separação.</p>
+                <button class="btn btn-primary btn-lg" onclick="App.navigate('pedidos')">
+                    <i class="fa-solid fa-arrow-left"></i> Ir para Lista de Pedidos
+                </button>
+            </div>
+
+            <div id="conferenciaAtivaContainer" class="picking-layout">
+                <!-- Sidebar Scanner -->
+                <aside class="picking-sidebar">
+                    <!-- Scanner Câmera Card -->
+                    <div class="scanner-card">
+                        <div class="scanner-header">
+                            <h3><i class="fa-solid fa-camera"></i> Leitor Câmera</h3>
+                            <div style="display: flex; gap: 0.35rem;">
+                                <button class="btn btn-secondary btn-sm" id="btnTorch" onclick="App.toggleTorch()" title="Lanterna/Flash">
+                                    <i class="fa-solid fa-bolt"></i>
+                                </button>
+                                <button class="btn btn-secondary btn-sm" id="btnSwitchCamera" onclick="App.switchCamera()" title="Alternar Câmera">
+                                    <i class="fa-solid fa-camera-rotate"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="camera-container">
+                            <div id="reader"></div>
+                            <div class="scan-laser" id="scanLaser" style="display: none;"></div>
+                        </div>
+
+                        <div class="scanner-controls">
+                            <button class="btn btn-success btn-sm" id="btnStartCam" style="width: 100%;" onclick="App.startCamera()">
+                                <i class="fa-solid fa-play"></i> Ativar Câmera
+                            </button>
+                            <button class="btn btn-danger btn-sm" id="btnStopCam" style="width: 100%; display: none;" onclick="App.stopCamera()">
+                                <i class="fa-solid fa-stop"></i> Parar Câmera
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Bipagem Manual / Leitor Pistola USB -->
+                    <div class="manual-scan-box">
+                        <div class="form-group">
+                            <label for="inputManualBarcode">
+                                <i class="fa-solid fa-barcode"></i> Bipar / Digitar Código (SKU ou EAN)
+                            </label>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <input type="text" id="inputManualBarcode" class="input-control font-mono" placeholder="Bipe aqui ou digite..." autofocus>
+                                <button class="btn btn-primary" onclick="App.biparManual()">
+                                    <i class="fa-solid fa-check"></i>
+                                </button>
+                            </div>
+                            <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+                                <i class="fa-solid fa-circle-info"></i> Pistolas USB/Bluetooth são detectadas automaticamente em qualquer parte da tela.
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Gestão de Volumes / Caixas -->
+                    <div class="scanner-card">
+                        <div class="scanner-header">
+                            <h3><i class="fa-solid fa-box"></i> Volumes (<span id="lblTotalVolumes">0</span>)</h3>
+                            <button class="btn btn-primary btn-sm" onclick="App.modalNovoVolume()">
+                                <i class="fa-solid fa-plus"></i> Novo Volume
+                            </button>
+                        </div>
+                        <div id="listaVolumesContainer" style="padding: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; max-height: 180px; overflow-y: auto;">
+                            <span style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding: 0.5rem;">Nenhum volume embalado ainda.</span>
+                        </div>
+                    </div>
+                </aside>
+
+                <!-- Painel Principal de Separação -->
+                <main class="picking-main">
+                    <!-- Cartão Principal do Pedido & Barra de Progresso -->
+                    <div class="order-hero-card">
+                        <div class="order-hero-top">
+                            <div class="order-title-block">
+                                <h2>
+                                    Pedido #<span id="lblNumeroPedido">---</span>
+                                    <span class="badge badge-progress" id="badgeStatusConferencia">Em Separação</span>
+                                </h2>
+                                <p><i class="fa-solid fa-user"></i> <span id="lblClientePedido">---</span></p>
+                            </div>
+
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                <button class="btn btn-secondary" onclick="App.imprimirRomaneio()" title="Imprimir Romaneio de Separação">
+                                    <i class="fa-solid fa-print"></i> Romaneio
+                                </button>
+                                <button class="btn btn-secondary" onclick="App.reiniciarConferencia()" title="Zerar contagem">
+                                    <i class="fa-solid fa-rotate-left"></i> Zerar
+                                </button>
+                                <button class="btn btn-success" id="btnFinalizarConferencia" onclick="App.finalizarConferencia()">
+                                    <i class="fa-solid fa-check-double"></i> Finalizar Pedido
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Barra de Progresso Total -->
+                        <div class="progress-container">
+                            <div class="progress-labels">
+                                <span>Progresso da Conferência: <strong id="lblQtdConferidaTotal">0</strong> / <span id="lblQtdEsperadaTotal">0</span> unidades</span>
+                                <span id="lblPorcentagemProgresso" style="color: var(--color-success);">0%</span>
+                            </div>
+                            <div class="progress-bar-track">
+                                <div class="progress-bar-fill" id="progressBarFill" style="width: 0%;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lista de Itens para Separação -->
+                    <div class="items-card-list" id="itensPickingList">
+                        <!-- Gerado via JavaScript -->
+                    </div>
+                </main>
+            </div>
+        </section>
+
+
+        <!-- ===================================================================
+             VIEW 3: HISTÓRICO & AUDITORIA DE CONFERÊNCIAS
+             =================================================================== -->
+        <section id="view-historico" class="view-section">
+            <div class="filter-card">
+                <div class="filter-grid" style="grid-template-columns: 1fr 200px auto;">
+                    <div class="form-group">
+                        <label for="filtroHistoricoBusca"><i class="fa-solid fa-magnifying-glass"></i> Buscar no Histórico</label>
+                        <input type="text" id="filtroHistoricoBusca" class="input-control" placeholder="Nº Pedido, Cliente ou Operador..." oninput="App.carregarHistorico()">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="filtroHistoricoStatus"><i class="fa-solid fa-filter"></i> Status</label>
+                        <select id="filtroHistoricoStatus" class="select-control" onchange="App.carregarHistorico()">
+                            <option value="">Todos</option>
+                            <option value="conferido">100% Conferido</option>
+                            <option value="divergencia">Com Divergência</option>
+                            <option value="em_separacao">Em Separação</option>
+                        </select>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="App.carregarHistorico()">
+                        <i class="fa-solid fa-rotate"></i> Atualizar
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="wms-table">
+                    <thead>
+                        <tr>
+                            <th>Nº Pedido</th>
+                            <th>Cliente</th>
+                            <th>Operador</th>
+                            <th>Status</th>
+                            <th>Unidades</th>
+                            <th>Volumes</th>
+                            <th>Início</th>
+                            <th>Fim</th>
+                            <th style="text-align: right;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historicoTableBody">
+                        <!-- Gerado dinamicamente -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+
+        <!-- ===================================================================
+             VIEW 4: DE-PARA & MAPEAMENTO DE CÓDIGOS DE BARRA (EAN)
+             =================================================================== -->
+        <section id="view-eans" class="view-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                <div>
+                    <h2>Mapeamento de Códigos de Barras (EAN ⇄ SKU)</h2>
+                    <p style="color: var(--text-secondary); font-size: 0.875rem;">Associe códigos de barras de fábrica aos códigos de produtos (SKU) do SIGE Cloud.</p>
+                </div>
+                <button class="btn btn-primary" onclick="App.modalNovoEan()">
+                    <i class="fa-solid fa-plus"></i> Novo Vínculo EAN
+                </button>
+            </div>
+
+            <div class="table-container">
+                <table class="wms-table">
+                    <thead>
+                        <tr>
+                            <th>Código SKU (SIGE)</th>
+                            <th>Código de Barras (EAN / Bip)</th>
+                            <th>Descrição do Produto</th>
+                            <th>Cadastrado em</th>
+                            <th style="text-align: right;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="eansTableBody">
+                        <!-- Gerado dinamicamente -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+
+        <!-- ===================================================================
+             VIEW 5: CONFIGURAÇÕES & CREDENCIAIS SIGE CLOUD
+             =================================================================== -->
+        <section id="view-config" class="view-section">
+            <div class="modal-card" style="max-width: 800px; margin: 0 auto;">
+                <div class="modal-header">
+                    <h3><i class="fa-solid fa-sliders"></i> Configurações do Sistema & Integração SIGE Cloud</h3>
+                </div>
+                <div class="modal-body">
+                    <form id="formConfig" onsubmit="App.salvarConfiguracoes(event)">
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label for="cfgToken"><i class="fa-solid fa-key"></i> Token de Autorização SIGE Cloud</label>
+                            <input type="text" id="cfgToken" class="input-control font-mono" required>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                            <div class="form-group">
+                                <label for="cfgUser"><i class="fa-solid fa-envelope"></i> Usuário SIGE</label>
+                                <input type="text" id="cfgUser" class="input-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="cfgApp"><i class="fa-solid fa-cube"></i> Identificador APP</label>
+                                <input type="text" id="cfgApp" class="input-control" required>
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                            <div class="form-group">
+                                <label for="cfgOperadorPadrao"><i class="fa-solid fa-user"></i> Nome do Operador Padrão</label>
+                                <input type="text" id="cfgOperadorPadrao" class="input-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="cfgModoCego"><i class="fa-solid fa-eye-slash"></i> Modo Conferência Cega</label>
+                                <select id="cfgModoCego" class="select-control">
+                                    <option value="0">Desativado (Mostra quantidades esperadas)</option>
+                                    <option value="1">Ativado (Oculta quantidades até concluir)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 0.75rem; justify-content: space-between; align-items: center;">
+                            <button type="button" class="btn btn-secondary" onclick="App.testarConexaoSige()">
+                                <i class="fa-solid fa-plug"></i> Testar Conexão SIGE
+                            </button>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fa-solid fa-floppy-disk"></i> Salvar Configurações
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ===================================================================
+         MODAIS
+         =================================================================== -->
+
+    <!-- Modal Adicionar Volume -->
+    <div class="modal-overlay" id="modalVolume">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-box"></i> Adicionar Volume / Embalagem</h3>
+                <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="formVolume" onsubmit="App.salvarVolume(event)">
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label for="volPeso"><i class="fa-solid fa-weight-hanging"></i> Peso Total da Caixa (KG)</label>
+                        <input type="number" step="0.01" id="volPeso" class="input-control" placeholder="Ex: 2.45" required autofocus>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 1.5rem;">
+                        <label for="volDimensoes"><i class="fa-solid fa-ruler-combined"></i> Dimensões (C x L x A cm - Opcional)</label>
+                        <input type="text" id="volDimensoes" class="input-control" placeholder="Ex: 30x20x15">
+                    </div>
+                    <div class="modal-footer" style="padding: 0; background: none; border: none;">
+                        <button type="button" class="btn btn-secondary" onclick="App.fecharModais()">Cancelar</button>
+                        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Gerar Volume & Etiqueta</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Novo EAN -->
+    <div class="modal-overlay" id="modalEan">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-tag"></i> Vincular Código de Barras (EAN) ao SKU</h3>
+                <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="formEan" onsubmit="App.salvarNovoEan(event)">
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label for="eanSku"><i class="fa-solid fa-hashtag"></i> Código do Produto no SIGE (SKU)</label>
+                        <input type="text" id="eanSku" class="input-control font-mono" placeholder="Ex: RP00001" required autofocus>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label for="eanCodigoBarra"><i class="fa-solid fa-barcode"></i> Código de Barras / EAN-13</label>
+                        <input type="text" id="eanCodigoBarra" class="input-control font-mono" placeholder="Ex: 7898561230012" required>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 1.5rem;">
+                        <label for="eanDescricao"><i class="fa-solid fa-font"></i> Descrição do Produto (Opcional)</label>
+                        <input type="text" id="eanDescricao" class="input-control" placeholder="Nome do produto...">
+                    </div>
+                    <div class="modal-footer" style="padding: 0; background: none; border: none;">
+                        <button type="button" class="btn btn-secondary" onclick="App.fecharModais()">Cancelar</button>
+                        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Salvar Vínculo</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Operador -->
+    <div class="modal-overlay" id="modalOperador">
+        <div class="modal-card" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-user"></i> Identificação do Operador</h3>
+                <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="inputNomeOperador">Nome do Operador de Separação:</label>
+                    <input type="text" id="inputNomeOperador" class="input-control" placeholder="Seu nome...">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" onclick="App.salvarOperadorAtual()">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Área de Impressão (Romaneios e Etiquetas de Volumes) -->
+    <div id="printArea" class="print-area" style="display: none;"></div>
+
+    <!-- Application JavaScript Engine -->
+    <script src="js/audio.js"></script>
+    <script src="js/scanner.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
