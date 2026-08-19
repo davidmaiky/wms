@@ -43,6 +43,9 @@
                 <button class="nav-btn" data-view="eans" onclick="App.navigate('eans')">
                     <i class="fa-solid fa-tags"></i> De-Para EAN
                 </button>
+                <button class="nav-btn" data-view="usuarios" onclick="App.navigate('usuarios')">
+                    <i class="fa-solid fa-users-gear"></i> Usuários
+                </button>
                 <button class="nav-btn" data-view="config" onclick="App.navigate('config')">
                     <i class="fa-solid fa-gear"></i> Ajustes
                 </button>
@@ -449,6 +452,116 @@
             </div>
         </section>
 
+
+        <!-- ===================================================================
+             VIEW 6: GERENCIAMENTO DE USUÁRIOS (CRUD)
+             =================================================================== -->
+        <section id="view-usuarios" class="view-section">
+            <!-- KPI Cards de Usuários -->
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-icon blue">
+                        <i class="fa-solid fa-users"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <h3>Total de Usuários</h3>
+                        <div class="kpi-value" id="kpiTotalUsuarios">0</div>
+                    </div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-icon green">
+                        <i class="fa-solid fa-user-check"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <h3>Usuários Ativos</h3>
+                        <div class="kpi-value" id="kpiUsuariosAtivos">0</div>
+                    </div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-icon yellow">
+                        <i class="fa-solid fa-dolly"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <h3>Operadores / Conferentes</h3>
+                        <div class="kpi-value" id="kpiUsuariosOperadores">0</div>
+                    </div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-icon purple">
+                        <i class="fa-solid fa-user-shield"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <h3>Administradores</h3>
+                        <div class="kpi-value" id="kpiUsuariosAdmins">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Barra de Ações e Filtros de Usuários -->
+            <div class="filter-card">
+                <div class="filter-grid" style="grid-template-columns: 1fr 180px 160px auto auto;">
+                    <div class="form-group">
+                        <label for="filtroUsuariosBusca"><i class="fa-solid fa-magnifying-glass"></i> Buscar Usuário</label>
+                        <input type="text" id="filtroUsuariosBusca" class="input-control" placeholder="Nome ou e-mail..." oninput="App.carregarUsuarios()">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="filtroUsuariosFuncao"><i class="fa-solid fa-id-badge"></i> Função / Cargo</label>
+                        <select id="filtroUsuariosFuncao" class="select-control" onchange="App.carregarUsuarios()">
+                            <option value="">Todas as Funções</option>
+                            <option value="admin">Administrador</option>
+                            <option value="supervisor">Supervisor</option>
+                            <option value="conferente">Conferente</option>
+                            <option value="operador">Operador</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="filtroUsuariosStatus"><i class="fa-solid fa-toggle-on"></i> Status</label>
+                        <select id="filtroUsuariosStatus" class="select-control" onchange="App.carregarUsuarios()">
+                            <option value="">Todos</option>
+                            <option value="ativo">Ativo</option>
+                            <option value="inativo">Inativo</option>
+                        </select>
+                    </div>
+
+                    <button class="btn btn-secondary" onclick="App.limparFiltrosUsuarios()" title="Limpar Filtros">
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </button>
+
+                    <button class="btn btn-primary" onclick="App.modalNovoUsuario()">
+                        <i class="fa-solid fa-user-plus"></i> Novo Usuário
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tabela de Usuários -->
+            <div class="table-container">
+                <table class="wms-table">
+                    <thead>
+                        <tr>
+                            <th>Usuário</th>
+                            <th>Função / Cargo</th>
+                            <th>Status</th>
+                            <th>PIN de Acesso</th>
+                            <th>Cadastrado em</th>
+                            <th style="text-align: right;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usuariosTableBody">
+                        <tr>
+                            <td colspan="6" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+                                <i class="fa-solid fa-spinner fa-spin fa-2x"></i><br><br>Carregando usuários...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
     </main>
 
     <!-- ===================================================================
@@ -511,21 +624,133 @@
         </div>
     </div>
 
-    <!-- Modal Operador -->
+    <!-- Modal Operador (Seleção Rápida e Customizada) -->
     <div class="modal-overlay" id="modalOperador">
-        <div class="modal-card" style="max-width: 400px;">
+        <div class="modal-card" style="max-width: 480px;">
             <div class="modal-header">
-                <h3><i class="fa-solid fa-user"></i> Identificação do Operador</h3>
+                <h3><i class="fa-solid fa-user-gear"></i> Selecionar Operador</h3>
                 <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="modal-body">
+                <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.75rem;">
+                    Selecione um dos operadores cadastrados no sistema:
+                </p>
+
+                <!-- Lista dinâmica de operadores ativos -->
+                <div class="operator-select-grid" id="listaOperadoresSelecao">
+                    <!-- Gerado via JS -->
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 0.75rem; margin: 1.25rem 0 0.75rem 0;">
+                    <hr style="flex: 1; border: none; border-top: 1px solid var(--border-color);">
+                    <span style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase;">ou digite manualmente</span>
+                    <hr style="flex: 1; border: none; border-top: 1px solid var(--border-color);">
+                </div>
+
                 <div class="form-group">
                     <label for="inputNomeOperador">Nome do Operador de Separação:</label>
                     <input type="text" id="inputNomeOperador" class="input-control" placeholder="Seu nome...">
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-primary" onclick="App.salvarOperadorAtual()">Confirmar</button>
+                <button type="button" class="btn btn-secondary" onclick="App.fecharModais()">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="App.salvarOperadorAtual()"><i class="fa-solid fa-check"></i> Confirmar Operador</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Novo / Editar Usuário -->
+    <div class="modal-overlay" id="modalUsuario">
+        <div class="modal-card" style="max-width: 540px;">
+            <div class="modal-header">
+                <h3 id="modalUsuarioTitulo"><i class="fa-solid fa-user-plus"></i> Novo Usuário</h3>
+                <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="formUsuario" onsubmit="App.salvarUsuario(event)">
+                    <input type="hidden" id="usuarioId" value="">
+                    
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label for="usuarioNome"><i class="fa-solid fa-user"></i> Nome Completo</label>
+                        <input type="text" id="usuarioNome" class="input-control" placeholder="Ex: David Silva" required autofocus>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label for="usuarioEmail"><i class="fa-solid fa-envelope"></i> E-mail de Acesso</label>
+                        <input type="email" id="usuarioEmail" class="input-control" placeholder="exemplo@primepro.com.br" required>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div class="form-group">
+                            <label for="usuarioFuncao"><i class="fa-solid fa-id-badge"></i> Função / Cargo</label>
+                            <select id="usuarioFuncao" class="select-control" required>
+                                <option value="operador">Operador</option>
+                                <option value="conferente">Conferente</option>
+                                <option value="supervisor">Supervisor</option>
+                                <option value="admin">Administrador</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="usuarioStatus"><i class="fa-solid fa-toggle-on"></i> Status</label>
+                            <select id="usuarioStatus" class="select-control" required>
+                                <option value="ativo">Ativo</option>
+                                <option value="inativo">Inativo</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
+                        <div class="form-group">
+                            <label for="usuarioPin"><i class="fa-solid fa-key"></i> PIN / Senha Rápida</label>
+                            <input type="text" id="usuarioPin" class="input-control font-mono" placeholder="Ex: 1234" maxlength="12">
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-palette"></i> Cor do Avatar</label>
+                            <input type="hidden" id="usuarioAvatarCor" value="#3b82f6">
+                            <div class="avatar-color-swatches" id="usuarioAvatarColorSwatches">
+                                <div class="color-swatch-opt active" style="background: #3b82f6;" data-color="#3b82f6" onclick="App.selecionarCorAvatar('#3b82f6')"></div>
+                                <div class="color-swatch-opt" style="background: #10b981;" data-color="#10b981" onclick="App.selecionarCorAvatar('#10b981')"></div>
+                                <div class="color-swatch-opt" style="background: #8b5cf6;" data-color="#8b5cf6" onclick="App.selecionarCorAvatar('#8b5cf6')"></div>
+                                <div class="color-swatch-opt" style="background: #06b6d4;" data-color="#06b6d4" onclick="App.selecionarCorAvatar('#06b6d4')"></div>
+                                <div class="color-swatch-opt" style="background: #f59e0b;" data-color="#f59e0b" onclick="App.selecionarCorAvatar('#f59e0b')"></div>
+                                <div class="color-swatch-opt" style="background: #ec4899;" data-color="#ec4899" onclick="App.selecionarCorAvatar('#ec4899')"></div>
+                                <div class="color-swatch-opt" style="background: #64748b;" data-color="#64748b" onclick="App.selecionarCorAvatar('#64748b')"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer" style="padding: 0; background: none; border: none; display: flex; gap: 0.75rem; justify-content: flex-end;">
+                        <button type="button" class="btn btn-secondary" onclick="App.fecharModais()">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="btnSalvarUsuario">
+                            <i class="fa-solid fa-floppy-disk"></i> Salvar Usuário
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Confirmar Exclusão de Usuário -->
+    <div class="modal-overlay" id="modalExcluirUsuario">
+        <div class="modal-card" style="max-width: 440px;">
+            <div class="modal-header" style="border-bottom: 1px solid var(--color-danger-border);">
+                <h3 style="color: var(--color-danger);"><i class="fa-solid fa-trash"></i> Excluir Usuário</h3>
+                <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="excluirUsuarioId" value="">
+                <p style="color: var(--text-secondary); margin-bottom: 1rem; line-height: 1.5;">
+                    Tem certeza de que deseja remover o usuário <strong id="lblExcluirUsuarioNome" style="color: var(--text-primary);">---</strong> do sistema?
+                </p>
+                <p style="color: var(--color-danger); font-size: 0.85rem;">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Esta ação removerá permanentemente o acesso do usuário.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="App.fecharModais()">Cancelar</button>
+                <button type="button" class="btn btn-danger" onclick="App.executarExclusaoUsuario()">
+                    <i class="fa-solid fa-trash"></i> Confirmar Exclusão
+                </button>
             </div>
         </div>
     </div>

@@ -75,6 +75,9 @@ const App = {
         } else if (viewName === 'eans') {
             this.carregarEans();
             this.stopCamera();
+        } else if (viewName === 'usuarios') {
+            this.carregarUsuarios();
+            this.stopCamera();
         } else if (viewName === 'config') {
             this.carregarConfiguracoes();
             this.stopCamera();
@@ -1243,21 +1246,346 @@ const App = {
         }
     },
 
+    // --- GERENCIAMENTO DE USUÁRIOS (CRUD) ---
+    async carregarUsuarios() {
+        const tbody = document.getElementById('usuariosTableBody');
+        const busca = document.getElementById('filtroUsuariosBusca')?.value.trim() || '';
+        const funcao = document.getElementById('filtroUsuariosFuncao')?.value || '';
+        const status = document.getElementById('filtroUsuariosStatus')?.value || '';
+
+        try {
+            const params = new URLSearchParams({ action: 'list' });
+            if (busca) params.append('q', busca);
+            if (funcao) params.append('funcao', funcao);
+            if (status) params.append('status', status);
+
+            const res = await fetch(`api/usuarios.php?${params.toString()}`);
+            const data = await res.json();
+
+            if (!data.success) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--color-danger); padding: 2rem;">${data.error || 'Erro ao listar usuários.'}</td></tr>`;
+                return;
+            }
+
+            // Atualizar KPIs
+            if (data.stats) {
+                document.getElementById('kpiTotalUsuarios').textContent = data.stats.total || 0;
+                document.getElementById('kpiUsuariosAtivos').textContent = data.stats.ativos || 0;
+                document.getElementById('kpiUsuariosOperadores').textContent = data.stats.operadores || 0;
+                document.getElementById('kpiUsuariosAdmins').textContent = data.stats.admins || 0;
+            }
+
+            this.renderTabelaUsuarios(data.data || []);
+        } catch (e) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--color-danger); padding: 2rem;">Erro de conexão ao carregar usuários.</td></tr>`;
+        }
+    },
+
+    renderTabelaUsuarios(usuarios) {
+        const tbody = document.getElementById('usuariosTableBody');
+        if (!usuarios || usuarios.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+                        <i class="fa-solid fa-user-slash fa-2x" style="margin-bottom: 0.5rem;"></i><br>
+                        Nenhum usuário encontrado com os filtros selecionados.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        let html = '';
+        usuarios.forEach(u => {
+            // Obter iniciais do nome
+            const nomes = (u.nome || '').trim().split(/\s+/);
+            let iniciais = '';
+            if (nomes.length >= 2) {
+                iniciais = (nomes[0][0] + nomes[nomes.length - 1][0]).toUpperCase();
+            } else if (nomes.length === 1 && nomes[0]) {
+                iniciais = nomes[0].substring(0, 2).toUpperCase();
+            } else {
+                iniciais = 'US';
+            }
+
+            const avatarCor = u.avatar_cor || '#3b82f6';
+
+            // Badge da função
+            let roleBadge = '';
+            if (u.funcao === 'admin') {
+                roleBadge = '<span class="badge-role badge-role-admin"><i class="fa-solid fa-shield"></i> Administrador</span>';
+            } else if (u.funcao === 'supervisor') {
+                roleBadge = '<span class="badge-role badge-role-supervisor"><i class="fa-solid fa-user-tie"></i> Supervisor</span>';
+            } else if (u.funcao === 'conferente') {
+                roleBadge = '<span class="badge-role badge-role-conferente"><i class="fa-solid fa-barcode"></i> Conferente</span>';
+            } else {
+                roleBadge = '<span class="badge-role badge-role-operador"><i class="fa-solid fa-dolly"></i> Operador</span>';
+            }
+
+            // Status Pill com toggle rápido
+            const isAtivo = (u.status === 'ativo');
+            const statusPill = `
+                <span class="status-pill ${isAtivo ? 'ativo' : 'inativo'}" onclick="App.alternarStatusUsuario(${u.id}, '${u.status}')" title="Clique para alternar status">
+                    <span class="dot"></span> ${isAtivo ? 'Ativo' : 'Inativo'}
+                </span>
+            `;
+
+            // Data de cadastro formatada
+            const dataCriado = u.criado_em ? new Date(u.criado_em).toLocaleDateString('pt-BR') : '-';
+
+            // PIN mascarado
+            const pinDisplay = u.pin ? `<span class="font-mono" style="color: var(--text-secondary); background: var(--bg-primary); padding: 2px 6px; border-radius: 4px;">••••</span>` : '<span style="color: var(--text-muted);">-</span>';
+
+            html += `
+                <tr>
+                    <td>
+                        <div class="user-cell">
+                            <div class="user-avatar" style="background: ${avatarCor};">
+                                ${iniciais}
+                            </div>
+                            <div class="user-info-text">
+                                <span class="user-name">${u.nome}</span>
+                                <span class="user-email">${u.email}</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td>${roleBadge}</td>
+                    <td>${statusPill}</td>
+                    <td>${pinDisplay}</td>
+                    <td style="font-size: 0.825rem; color: var(--text-muted);">${dataCriado}</td>
+                    <td style="text-align: right; white-space: nowrap;">
+                        <button class="btn btn-secondary btn-sm" onclick="App.modalEditarUsuario(${u.id})" title="Editar Usuário" style="margin-right: 0.25rem;">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="App.confirmarExclusaoUsuario(${u.id}, '${u.nome.replace(/'/g, "\\'")}')" title="Excluir Usuário">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+    },
+
+    limparFiltrosUsuarios() {
+        if (document.getElementById('filtroUsuariosBusca')) document.getElementById('filtroUsuariosBusca').value = '';
+        if (document.getElementById('filtroUsuariosFuncao')) document.getElementById('filtroUsuariosFuncao').value = '';
+        if (document.getElementById('filtroUsuariosStatus')) document.getElementById('filtroUsuariosStatus').value = '';
+        this.carregarUsuarios();
+    },
+
+    selecionarCorAvatar(hex) {
+        document.getElementById('usuarioAvatarCor').value = hex;
+        document.querySelectorAll('#usuarioAvatarColorSwatches .color-swatch-opt').forEach(el => {
+            el.classList.toggle('active', el.getAttribute('data-color') === hex);
+        });
+    },
+
+    modalNovoUsuario() {
+        document.getElementById('usuarioId').value = '';
+        document.getElementById('formUsuario').reset();
+        document.getElementById('usuarioId').value = '';
+        document.getElementById('usuarioStatus').value = 'ativo';
+        document.getElementById('usuarioFuncao').value = 'operador';
+        this.selecionarCorAvatar('#3b82f6');
+        document.getElementById('modalUsuarioTitulo').innerHTML = '<i class="fa-solid fa-user-plus"></i> Novo Usuário';
+        document.getElementById('btnSalvarUsuario').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Salvar Usuário';
+        document.getElementById('modalUsuario').classList.add('active');
+        document.getElementById('usuarioNome').focus();
+    },
+
+    async modalEditarUsuario(id) {
+        try {
+            const res = await fetch(`api/usuarios.php?action=get&id=${id}`);
+            const data = await res.json();
+
+            if (!data.success || !data.usuario) {
+                this.toast(data.error || 'Usuário não encontrado.', 'error');
+                return;
+            }
+
+            const u = data.usuario;
+            document.getElementById('usuarioId').value = u.id;
+            document.getElementById('usuarioNome').value = u.nome || '';
+            document.getElementById('usuarioEmail').value = u.email || '';
+            document.getElementById('usuarioFuncao').value = u.funcao || 'operador';
+            document.getElementById('usuarioStatus').value = u.status || 'ativo';
+            document.getElementById('usuarioPin').value = u.pin || '';
+            this.selecionarCorAvatar(u.avatar_cor || '#3b82f6');
+
+            document.getElementById('modalUsuarioTitulo').innerHTML = `<i class="fa-solid fa-user-pen"></i> Editar Usuário: ${u.nome}`;
+            document.getElementById('btnSalvarUsuario').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Atualizar Usuário';
+            document.getElementById('modalUsuario').classList.add('active');
+            document.getElementById('usuarioNome').focus();
+        } catch (e) {
+            this.toast('Erro ao obter dados do usuário.', 'error');
+        }
+    },
+
+    async salvarUsuario(e) {
+        e.preventDefault();
+        const id = document.getElementById('usuarioId').value;
+        const nome = document.getElementById('usuarioNome').value.trim();
+        const email = document.getElementById('usuarioEmail').value.trim();
+        const funcao = document.getElementById('usuarioFuncao').value;
+        const status = document.getElementById('usuarioStatus').value;
+        const pin = document.getElementById('usuarioPin').value.trim();
+        const avatar_cor = document.getElementById('usuarioAvatarCor').value;
+
+        const action = id ? 'update' : 'create';
+        const payload = {
+            id,
+            nome,
+            email,
+            funcao,
+            status,
+            pin,
+            avatar_cor
+        };
+
+        try {
+            const res = await fetch(`api/usuarios.php?action=${action}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+
+            if (!data.success) {
+                this.toast(data.error || 'Erro ao salvar usuário.', 'error');
+                return;
+            }
+
+            this.toast(data.message || 'Usuário salvo com sucesso!', 'success');
+            this.fecharModais();
+            this.carregarUsuarios();
+
+            // Se o usuário editado for o mesmo operador atualmente selecionado, atualizar cabeçalho
+            if (id && this.operador === nome) {
+                document.getElementById('lblOperadorHeader').textContent = nome;
+            }
+        } catch (err) {
+            this.toast('Erro de conexão ao salvar usuário.', 'error');
+        }
+    },
+
+    async alternarStatusUsuario(id, statusAtual) {
+        try {
+            const res = await fetch('api/usuarios.php?action=toggle_status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+            const data = await res.json();
+
+            if (!data.success) {
+                this.toast(data.error || 'Erro ao alternar status do usuário.', 'error');
+                return;
+            }
+
+            this.toast(data.message, 'success');
+            this.carregarUsuarios();
+        } catch (e) {
+            this.toast('Erro ao alterar status.', 'error');
+        }
+    },
+
+    confirmarExclusaoUsuario(id, nome) {
+        document.getElementById('excluirUsuarioId').value = id;
+        document.getElementById('lblExcluirUsuarioNome').textContent = nome;
+        document.getElementById('modalExcluirUsuario').classList.add('active');
+    },
+
+    async executarExclusaoUsuario() {
+        const id = document.getElementById('excluirUsuarioId').value;
+        if (!id) return;
+
+        try {
+            const res = await fetch('api/usuarios.php?action=delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+            const data = await res.json();
+
+            if (!data.success) {
+                this.toast(data.error || 'Erro ao excluir usuário.', 'error');
+                return;
+            }
+
+            this.toast(data.message, 'success');
+            this.fecharModais();
+            this.carregarUsuarios();
+        } catch (e) {
+            this.toast('Erro ao excluir usuário.', 'error');
+        }
+    },
+
     // --- OPERADOR & PREFERÊNCIAS ---
-    modalOperador() {
+    async modalOperador() {
         document.getElementById('inputNomeOperador').value = this.operador;
-        document.getElementById('modalOperador').classList.add('active');
+        const container = document.getElementById('listaOperadoresSelecao');
+
+        if (container) {
+            container.innerHTML = `<div style="text-align: center; padding: 1rem; color: var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Carregando operadores...</div>`;
+            document.getElementById('modalOperador').classList.add('active');
+
+            try {
+                const res = await fetch('api/usuarios.php?action=active_operators');
+                const data = await res.json();
+
+                if (data.success && data.data && data.data.length > 0) {
+                    let html = '';
+                    data.data.forEach(op => {
+                        const nomes = (op.nome || '').trim().split(/\s+/);
+                        const initials = (nomes.length >= 2 ? (nomes[0][0] + nomes[nomes.length - 1][0]) : (op.nome.substring(0, 2))).toUpperCase();
+                        const isCurrent = (op.nome.toLowerCase() === this.operador.toLowerCase());
+
+                        html += `
+                            <div class="operator-select-card ${isCurrent ? 'active-op' : ''}" onclick="App.selecionarOperadorRapido('${op.nome.replace(/'/g, "\\'")}')">
+                                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                    <div class="user-avatar avatar-sm" style="background: ${op.avatar_cor || '#3b82f6'};">
+                                        ${initials}
+                                    </div>
+                                    <div>
+                                        <strong style="display: block; font-size: 0.9rem; color: var(--text-primary);">${op.nome}</strong>
+                                        <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: capitalize;">${op.funcao}</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    ${isCurrent ? '<i class="fa-solid fa-circle-check" style="color: var(--color-primary);"></i>' : '<i class="fa-solid fa-arrow-right" style="color: var(--text-muted); font-size: 0.8rem;"></i>'}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = `<div style="text-align: center; color: var(--text-muted); font-size: 0.8rem; padding: 0.5rem;">Nenhum operador cadastrado. Digite o nome abaixo:</div>`;
+                }
+            } catch (e) {
+                container.innerHTML = `<div style="text-align: center; color: var(--text-muted); font-size: 0.8rem; padding: 0.5rem;">Não foi possível carregar a lista de operadores.</div>`;
+            }
+        } else {
+            document.getElementById('modalOperador').classList.add('active');
+        }
+
         document.getElementById('inputNomeOperador').focus();
+    },
+
+    selecionarOperadorRapido(nome) {
+        if (!nome) return;
+        this.operador = nome;
+        localStorage.setItem('wms_operador', nome);
+        document.getElementById('lblOperadorHeader').textContent = nome;
+        this.fecharModais();
+        this.toast(`Operador selecionado: ${nome}`, 'success');
     },
 
     salvarOperadorAtual() {
         const nome = document.getElementById('inputNomeOperador').value.trim();
         if (nome) {
-            this.operador = nome;
-            localStorage.setItem('wms_operador', nome);
-            document.getElementById('lblOperadorHeader').textContent = nome;
-            this.fecharModais();
-            this.toast(`Operador alterado para: ${nome}`, 'info');
+            this.selecionarOperadorRapido(nome);
         }
     },
 

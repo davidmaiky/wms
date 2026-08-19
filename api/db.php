@@ -101,13 +101,38 @@ function initSchema(PDO $pdo) {
             criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
         );
 
+        CREATE TABLE IF NOT EXISTS usuarios (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            funcao TEXT DEFAULT 'operador', -- admin, supervisor, conferente, operador
+            pin TEXT,
+            status TEXT DEFAULT 'ativo', -- ativo, inativo
+            avatar_cor TEXT DEFAULT '#3b82f6',
+            ultimo_acesso DATETIME,
+            criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+            atualizado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
         CREATE INDEX IF NOT EXISTS idx_conferencias_num ON conferencias(numero_pedido);
         CREATE INDEX IF NOT EXISTS idx_conferencias_status ON conferencias(status);
         CREATE INDEX IF NOT EXISTS idx_itens_conferencia ON conferencia_itens(conferencia_id);
         CREATE INDEX IF NOT EXISTS idx_itens_codigo ON conferencia_itens(codigo_produto);
         CREATE INDEX IF NOT EXISTS idx_itens_ean ON conferencia_itens(ean);
         CREATE INDEX IF NOT EXISTS idx_ean_custom ON produtos_ean_custom(ean_adicional);
+        CREATE INDEX IF NOT EXISTS idx_usuarios_email ON usuarios(email);
+        CREATE INDEX IF NOT EXISTS idx_usuarios_status ON usuarios(status);
+        CREATE INDEX IF NOT EXISTS idx_usuarios_funcao ON usuarios(funcao);
     ");
+
+    // Inserir usuários padrão se tabela estiver vazia
+    $countUsers = $pdo->query("SELECT COUNT(*) FROM usuarios")->fetchColumn();
+    if ($countUsers == 0) {
+        $stmtUser = $pdo->prepare("INSERT INTO usuarios (nome, email, funcao, pin, status, avatar_cor) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmtUser->execute(['David', 'david@primepro.com.br', 'admin', '1234', 'ativo', '#3b82f6']);
+        $stmtUser->execute(['Operador Padrão', 'operador@primepro.com.br', 'operador', '1111', 'ativo', '#10b981']);
+        $stmtUser->execute(['Conferente WMS', 'conferente@primepro.com.br', 'conferente', '2222', 'ativo', '#8b5cf6']);
+    }
 
     // Inserir configurações padrão se não existirem
     $stmt = $pdo->prepare("INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES (?, ?)");
