@@ -39,6 +39,19 @@ try {
                 $stmtUp = $db->prepare("UPDATE conferencias SET operador = ?, data_inicio = COALESCE(data_inicio, CURRENT_TIMESTAMP), status = 'em_separacao', atualizado_em = CURRENT_TIMESTAMP WHERE id = ?");
                 $stmtUp->execute([$operador, $confExistente['id']]);
                 $conferenciaId = $confExistente['id'];
+
+                // Sincronizar EANs que possam estar vazios nos itens da conferência existente
+                $stmtItensExistentes = $db->prepare("SELECT id, codigo_produto, ean FROM conferencia_itens WHERE conferencia_id = ?");
+                $stmtItensExistentes->execute([$conferenciaId]);
+                while ($itRow = $stmtItensExistentes->fetch()) {
+                    if (empty($itRow['ean']) && !empty($itRow['codigo_produto'])) {
+                        $eanResolvido = obterEanProduto($itRow['codigo_produto'], $sige, $db);
+                        if (!empty($eanResolvido)) {
+                            $stmtUpEan = $db->prepare("UPDATE conferencia_itens SET ean = ? WHERE id = ?");
+                            $stmtUpEan->execute([$eanResolvido, $itRow['id']]);
+                        }
+                    }
+                }
             } else {
                 // Criar nova conferência
                 $items = $pedido['Items'] ?? [];
@@ -77,14 +90,9 @@ try {
                     $codProd = trim($it['Codigo'] ?? '');
                     $eanProd = trim($it['EAN'] ?? $it['Ean'] ?? $it['CodigoBarra'] ?? '');
                     
-                    // Se o item do pedido não veio com EAN, verificar se existe na tabela de de-para local
-                    if (empty($eanProd)) {
-                        $stmtCustom = $db->prepare("SELECT ean_adicional FROM produtos_ean_custom WHERE codigo_produto = ? LIMIT 1");
-                        $stmtCustom->execute([$codProd]);
-                        $custom = $stmtCustom->fetch();
-                        if ($custom) {
-                            $eanProd = $custom['ean_adicional'];
-                        }
+                    // Obter EAN via resolver integrado (De-Para customizado -> Cache local -> SIGE Cloud)
+                    if (empty($eanProd) && !empty($codProd)) {
+                        $eanProd = obterEanProduto($codProd, $sige, $db);
                     }
 
                     $stmtItemIns->execute([
@@ -131,13 +139,7 @@ try {
             $stmtItens->execute([$conferenciaId]);
             $itens = $stmtItens->fetchAll();
 
-            // Buscar se o código bipado está cadastrado no de-para customizado
-            $stmtEanCustom = $db->prepare("SELECT codigo_produto FROM produtos_ean_custom WHERE ean_adicional = ?");
-            $stmtEanCustom->execute([$codigoBipado]);
-            $customMapped = $stmtEanCustom->fetch();
-            $codigoProdutoMapeado = $customMapped ? $customMapped['codigo_produto'] : null;
-
-            // Encontrar o item correspondente
+            // 1. Tentar encontrar item diretamente por correspondência exata nos itens carregados
             $itemEncontrado = null;
             $codigoLimpo = ltrim($codigoBipado, '0');
 
@@ -152,22 +154,41 @@ try {
                     break;
                 }
 
-                // Correspondência via mapeamento customizado
-                if ($codigoProdutoMapeado && strcasecmp($sku, $codigoProdutoMapeado) === 0) {
-                    $itemEncontrado = $it;
-                    break;
-                }
-
                 // Correspondência sem zeros à esquerda
                 if (!empty($ean) && ltrim($ean, '0') === $codigoLimpo) {
                     $itemEncontrado = $it;
                     break;
                 }
+            }
 
-                // Se o código de barras contiver o SKU como substring/termo
-                if (!empty($sku) && strlen($sku) >= 4 && stripos($codigoBipado, $sku) !== false) {
-                    $itemEncontrado = $it;
-                    break;
+            // 2. Se não encontrou de primeira, consultar produto por EAN no de-para / cache / SIGE
+            if (!$itemEncontrado) {
+                $produtoIdentificado = obterProdutoPorEan($codigoBipado, $sige, $db);
+                if ($produtoIdentificado && !empty($produtoIdentificado['codigo_produto'])) {
+                    $codMapeado = $produtoIdentificado['codigo_produto'];
+                    foreach ($itens as $it) {
+                        if (strcasecmp(trim($it['codigo_produto']), $codMapeado) === 0) {
+                            $itemEncontrado = $it;
+                            // Atualizar EAN no item se estiver vazio
+                            if (empty($it['ean'])) {
+                                $stmtUpEan = $db->prepare("UPDATE conferencia_itens SET ean = ? WHERE id = ?");
+                                $stmtUpEan->execute([$codigoBipado, $it['id']]);
+                                $itemEncontrado['ean'] = $codigoBipado;
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // 3. Fallback: Se o código de barras contiver o SKU como substring/termo
+            if (!$itemEncontrado) {
+                foreach ($itens as $it) {
+                    $sku = trim($it['codigo_produto']);
+                    if (!empty($sku) && strlen($sku) >= 4 && stripos($codigoBipado, $sku) !== false) {
+                        $itemEncontrado = $it;
+                        break;
+                    }
                 }
             }
 
@@ -489,12 +510,17 @@ try {
                 $itensFormatados = [];
                 $qtdTotal = 0;
                 foreach ($items as $it) {
+                    $codProd = trim($it['Codigo'] ?? '');
+                    $ean = trim($it['EAN'] ?? $it['Ean'] ?? $it['CodigoBarra'] ?? '');
+                    if (empty($ean) && !empty($codProd)) {
+                        $ean = obterEanProduto($codProd, $sige, $db);
+                    }
                     $qtd = (float)($it['Quantidade'] ?? 0);
                     $qtdTotal += $qtd;
                     $itensFormatados[] = [
                         'id' => 0,
-                        'codigo_produto' => trim($it['Codigo'] ?? ''),
-                        'ean' => trim($it['EAN'] ?? $it['Ean'] ?? $it['CodigoBarra'] ?? ''),
+                        'codigo_produto' => $codProd,
+                        'ean' => $ean,
                         'descricao' => trim($it['Descricao'] ?? ''),
                         'quantidade_pedida' => $qtd,
                         'quantidade_conferida' => 0,
@@ -594,6 +620,18 @@ function retornarDadosConferencia(int $conferenciaId, string $mensagem = '', arr
     $stmtItens = $db->prepare("SELECT * FROM conferencia_itens WHERE conferencia_id = ? ORDER BY id ASC");
     $stmtItens->execute([$conferenciaId]);
     $itens = $stmtItens->fetchAll();
+
+    // Sincronizar e garantir que itens possuam EAN caso esteja vazio
+    foreach ($itens as &$it) {
+        if (empty($it['ean']) && !empty($it['codigo_produto'])) {
+            $eanResolvido = obterEanProduto($it['codigo_produto'], null, $db);
+            if (!empty($eanResolvido)) {
+                $it['ean'] = $eanResolvido;
+                $stmtUpEan = $db->prepare("UPDATE conferencia_itens SET ean = ? WHERE id = ?");
+                $stmtUpEan->execute([$eanResolvido, $it['id']]);
+            }
+        }
+    }
 
     $stmtVols = $db->prepare("SELECT * FROM volumes WHERE conferencia_id = ? ORDER BY numero_volume ASC");
     $stmtVols->execute([$conferenciaId]);

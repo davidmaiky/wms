@@ -114,12 +114,21 @@ function initSchema(PDO $pdo) {
             atualizado_em DATETIME DEFAULT CURRENT_TIMESTAMP
         );
 
+        CREATE TABLE IF NOT EXISTS produtos_cache (
+            codigo_produto TEXT PRIMARY KEY,
+            ean TEXT,
+            nome TEXT,
+            unidade TEXT DEFAULT 'UN',
+            atualizado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
         CREATE INDEX IF NOT EXISTS idx_conferencias_num ON conferencias(numero_pedido);
         CREATE INDEX IF NOT EXISTS idx_conferencias_status ON conferencias(status);
         CREATE INDEX IF NOT EXISTS idx_itens_conferencia ON conferencia_itens(conferencia_id);
         CREATE INDEX IF NOT EXISTS idx_itens_codigo ON conferencia_itens(codigo_produto);
         CREATE INDEX IF NOT EXISTS idx_itens_ean ON conferencia_itens(ean);
         CREATE INDEX IF NOT EXISTS idx_ean_custom ON produtos_ean_custom(ean_adicional);
+        CREATE INDEX IF NOT EXISTS idx_prod_cache_ean ON produtos_cache(ean);
         CREATE INDEX IF NOT EXISTS idx_usuarios_email ON usuarios(email);
         CREATE INDEX IF NOT EXISTS idx_usuarios_status ON usuarios(status);
         CREATE INDEX IF NOT EXISTS idx_usuarios_funcao ON usuarios(funcao);
@@ -156,4 +165,132 @@ function setConfig($chave, $valor) {
     $db = getDB();
     $stmt = $db->prepare("INSERT INTO configuracoes (chave, valor, atualizado_em) VALUES (?, ?, CURRENT_TIMESTAMP) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor, atualizado_em = CURRENT_TIMESTAMP");
     $stmt->execute([$chave, $valor]);
+}
+
+/**
+ * Salvar produto no cache local
+ */
+function salvarCacheProduto(string $codigoProduto, string $ean, string $nome = '', string $unidade = 'UN', ?PDO $db = null): void {
+    if (empty($codigoProduto)) return;
+    $db = $db ?? getDB();
+    $stmt = $db->prepare("
+        INSERT INTO produtos_cache (codigo_produto, ean, nome, unidade, atualizado_em)
+        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(codigo_produto) DO UPDATE SET
+            ean = CASE WHEN excluded.ean != '' THEN excluded.ean ELSE produtos_cache.ean END,
+            nome = CASE WHEN excluded.nome != '' THEN excluded.nome ELSE produtos_cache.nome END,
+            unidade = CASE WHEN excluded.unidade != '' THEN excluded.unidade ELSE produtos_cache.unidade END,
+            atualizado_em = CURRENT_TIMESTAMP
+    ");
+    $stmt->execute([trim($codigoProduto), trim($ean), trim($nome), trim($unidade)]);
+}
+
+/**
+ * Resolver o código EAN de um produto:
+ * 1) Verifica De-Para customizado local (produtos_ean_custom)
+ * 2) Verifica Cache local (produtos_cache)
+ * 3) Consulta API do SIGE Cloud e salva no cache
+ */
+function obterEanProduto(string $codigoProduto, ?SigeClient $sige = null, ?PDO $db = null): string {
+    $codigo = trim($codigoProduto);
+    if (empty($codigo)) return '';
+
+    $db = $db ?? getDB();
+
+    // 1) De-Para customizado
+    $stmtCustom = $db->prepare("SELECT ean_adicional FROM produtos_ean_custom WHERE codigo_produto = ? LIMIT 1");
+    $stmtCustom->execute([$codigo]);
+    $rowCustom = $stmtCustom->fetch();
+    if ($rowCustom && !empty($rowCustom['ean_adicional'])) {
+        return trim($rowCustom['ean_adicional']);
+    }
+
+    // 2) Cache local
+    $stmtCache = $db->prepare("SELECT ean FROM produtos_cache WHERE codigo_produto = ? LIMIT 1");
+    $stmtCache->execute([$codigo]);
+    $rowCache = $stmtCache->fetch();
+    if ($rowCache && !empty($rowCache['ean'])) {
+        return trim($rowCache['ean']);
+    }
+
+    // 3) Consultar SIGE Cloud
+    if ($sige === null) {
+        require_once __DIR__ . '/sige_client.php';
+        $sige = new SigeClient();
+    }
+
+    $prodSige = $sige->obterProduto($codigo);
+    if ($prodSige && is_array($prodSige)) {
+        $ean = trim($prodSige['Ean'] ?? $prodSige['EAN'] ?? $prodSige['CodigoBarra'] ?? '');
+        $nome = trim($prodSige['Nome'] ?? $prodSige['Descricao'] ?? '');
+        $unidade = trim($prodSige['EstoqueUnidade'] ?? $prodSige['UnidadeComercial'] ?? 'UN');
+        
+        salvarCacheProduto($codigo, $ean, $nome, $unidade, $db);
+        return $ean;
+    }
+
+    return '';
+}
+
+/**
+ * Buscar produto a partir de um código de barras / EAN:
+ * 1) Verifica De-Para customizado local
+ * 2) Verifica Cache local
+ * 3) Consulta API do SIGE Cloud por EAN e salva no cache
+ */
+function obterProdutoPorEan(string $ean, ?SigeClient $sige = null, ?PDO $db = null): ?array {
+    $cleanEan = trim($ean);
+    if (empty($cleanEan)) return null;
+
+    $db = $db ?? getDB();
+
+    // 1) De-para customizado
+    $stmtCustom = $db->prepare("SELECT codigo_produto, descricao FROM produtos_ean_custom WHERE ean_adicional = ? LIMIT 1");
+    $stmtCustom->execute([$cleanEan]);
+    $rowCustom = $stmtCustom->fetch();
+    if ($rowCustom) {
+        return [
+            'codigo_produto' => $rowCustom['codigo_produto'],
+            'ean' => $cleanEan,
+            'nome' => $rowCustom['descricao'] ?? ''
+        ];
+    }
+
+    // 2) Cache local
+    $stmtCache = $db->prepare("SELECT codigo_produto, ean, nome, unidade FROM produtos_cache WHERE ean = ? LIMIT 1");
+    $stmtCache->execute([$cleanEan]);
+    $rowCache = $stmtCache->fetch();
+    if ($rowCache) {
+        return [
+            'codigo_produto' => $rowCache['codigo_produto'],
+            'ean' => $rowCache['ean'],
+            'nome' => $rowCache['nome'],
+            'unidade' => $rowCache['unidade']
+        ];
+    }
+
+    // 3) Consultar SIGE Cloud por EAN
+    if ($sige === null) {
+        require_once __DIR__ . '/sige_client.php';
+        $sige = new SigeClient();
+    }
+
+    $prodSige = $sige->obterProduto('', $cleanEan);
+    if ($prodSige && is_array($prodSige) && !empty($prodSige['Codigo'])) {
+        $cod = trim($prodSige['Codigo']);
+        $eanSige = trim($prodSige['Ean'] ?? $cleanEan);
+        $nome = trim($prodSige['Nome'] ?? $prodSige['Descricao'] ?? '');
+        $unidade = trim($prodSige['EstoqueUnidade'] ?? $prodSige['UnidadeComercial'] ?? 'UN');
+
+        salvarCacheProduto($cod, $eanSige, $nome, $unidade, $db);
+
+        return [
+            'codigo_produto' => $cod,
+            'ean' => $eanSige,
+            'nome' => $nome,
+            'unidade' => $unidade
+        ];
+    }
+
+    return null;
 }

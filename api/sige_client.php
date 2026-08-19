@@ -15,7 +15,7 @@ class SigeClient {
         $this->baseUrl = rtrim(SIGE_BASE_URL, '/');
     }
 
-    private function request(string $endpoint, string $method = 'GET', array $params = [], $body = null) {
+    public function request(string $endpoint, string $method = 'GET', array $params = [], $body = null) {
         $url = $this->baseUrl . '/' . ltrim($endpoint, '/');
         
         if ($method === 'GET' && !empty($params)) {

@@ -89,6 +89,19 @@ try {
                 jsonError("Pedido #$codigo não encontrado no SIGE Cloud.", 404);
             }
 
+            // Enriquecer itens do pedido com EAN
+            if (!empty($pedido['Items']) && is_array($pedido['Items'])) {
+                foreach ($pedido['Items'] as &$it) {
+                    $cod = trim($it['Codigo'] ?? '');
+                    $ean = trim($it['Ean'] ?? $it['EAN'] ?? $it['CodigoBarra'] ?? '');
+                    if (empty($ean) && !empty($cod)) {
+                        $ean = obterEanProduto($cod, $sige, $db);
+                    }
+                    $it['Ean'] = $ean;
+                    $it['EAN'] = $ean;
+                }
+            }
+
             // Buscar conferência local existente
             $stmt = $db->prepare("
                 SELECT * FROM conferencias WHERE numero_pedido = ? ORDER BY id DESC LIMIT 1
@@ -103,6 +116,18 @@ try {
                 ");
                 $stmtItens->execute([$conferencia['id']]);
                 $itensConferencia = $stmtItens->fetchAll();
+
+                // Garantir que os itens da conferência também tenham o EAN atualizado
+                foreach ($itensConferencia as &$cit) {
+                    if (empty($cit['ean']) && !empty($cit['codigo_produto'])) {
+                        $citEan = obterEanProduto($cit['codigo_produto'], $sige, $db);
+                        if (!empty($citEan)) {
+                            $cit['ean'] = $citEan;
+                            $stmtUpEan = $db->prepare("UPDATE conferencia_itens SET ean = ? WHERE id = ?");
+                            $stmtUpEan->execute([$citEan, $cit['id']]);
+                        }
+                    }
+                }
 
                 // Buscar volumes gerados
                 $stmtVols = $db->prepare("
