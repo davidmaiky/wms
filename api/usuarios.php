@@ -20,7 +20,7 @@ try {
             $funcao = trim($_GET['funcao'] ?? '');
             $status = trim($_GET['status'] ?? '');
 
-            $sql = "SELECT id, nome, email, funcao, pin, status, avatar_cor, ultimo_acesso, criado_em, atualizado_em FROM usuarios WHERE 1=1";
+            $sql = "SELECT id, nome, email, funcao, (CASE WHEN pin IS NOT NULL AND pin != '' THEN 1 ELSE 0 END) AS has_pin, status, avatar_cor, ultimo_acesso, criado_em, atualizado_em FROM usuarios WHERE 1=1";
             $params = [];
 
             if ($q !== '') {
@@ -75,7 +75,7 @@ try {
                 jsonError("ID do usuário não informado.");
             }
 
-            $stmt = $db->prepare("SELECT id, nome, email, funcao, pin, status, avatar_cor, ultimo_acesso, criado_em, atualizado_em FROM usuarios WHERE id = ?");
+            $stmt = $db->prepare("SELECT id, nome, email, funcao, (CASE WHEN pin IS NOT NULL AND pin != '' THEN 1 ELSE 0 END) AS has_pin, status, avatar_cor, ultimo_acesso, criado_em, atualizado_em FROM usuarios WHERE id = ?");
             $stmt->execute([$id]);
             $usuario = $stmt->fetch();
 
@@ -187,18 +187,32 @@ try {
                 }
             }
 
-            $stmt = $db->prepare("
-                UPDATE usuarios SET
-                    nome = ?,
-                    email = ?,
-                    funcao = ?,
-                    pin = ?,
-                    status = ?,
-                    avatar_cor = ?,
-                    atualizado_em = CURRENT_TIMESTAMP
-                WHERE id = ?
-            ");
-            $stmt->execute([$nome, $email, $funcao, $pin, $status, $avatarCor, $id]);
+            if ($pin !== '') {
+                $stmt = $db->prepare("
+                    UPDATE usuarios SET
+                        nome = ?,
+                        email = ?,
+                        funcao = ?,
+                        pin = ?,
+                        status = ?,
+                        avatar_cor = ?,
+                        atualizado_em = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                ");
+                $stmt->execute([$nome, $email, $funcao, $pin, $status, $avatarCor, $id]);
+            } else {
+                $stmt = $db->prepare("
+                    UPDATE usuarios SET
+                        nome = ?,
+                        email = ?,
+                        funcao = ?,
+                        status = ?,
+                        avatar_cor = ?,
+                        atualizado_em = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                ");
+                $stmt->execute([$nome, $email, $funcao, $status, $avatarCor, $id]);
+            }
 
             jsonResponse([
                 'success' => true,
@@ -291,6 +305,87 @@ try {
                 'success' => true,
                 'data' => $operadores
             ]);
+            break;
+
+        // -------------------------------------------------------------
+        // LOGIN: Autenticar usuário por email e senha (pin)
+        // -------------------------------------------------------------
+        case 'login':
+            $email = trim(strtolower($_POST['email'] ?? ''));
+            $senha = trim($_POST['senha'] ?? $_POST['password'] ?? $_POST['pin'] ?? '');
+
+            if (empty($email) || empty($senha)) {
+                jsonError("E-mail e senha são obrigatórios.");
+            }
+
+            $stmt = $db->prepare("SELECT id, nome, email, funcao, pin, status, avatar_cor FROM usuarios WHERE email = ? LIMIT 1");
+            $stmt->execute([$email]);
+            $user = $stmt->fetch();
+
+            if (!$user) {
+                jsonError("E-mail ou senha incorretos.");
+            }
+
+            if ($user['status'] !== 'ativo') {
+                jsonError("Este usuário está inativo. Contate um administrador.");
+            }
+
+            if ($user['pin'] !== $senha) {
+                jsonError("E-mail ou senha incorretos.");
+            }
+
+            // Atualizar último acesso
+            $upStmt = $db->prepare("UPDATE usuarios SET ultimo_acesso = CURRENT_TIMESTAMP WHERE id = ?");
+            $upStmt->execute([$user['id']]);
+
+            // Definir sessão
+            $_SESSION['wms_user'] = [
+                'id' => $user['id'],
+                'nome' => $user['nome'],
+                'email' => $user['email'],
+                'funcao' => $user['funcao'],
+                'avatar_cor' => $user['avatar_cor']
+            ];
+
+            jsonResponse([
+                'success' => true,
+                'message' => "Login efetuado com sucesso!",
+                'user' => $_SESSION['wms_user']
+            ]);
+            break;
+
+        // -------------------------------------------------------------
+        // LOGOUT: Destruir sessão
+        // -------------------------------------------------------------
+        case 'logout':
+            $_SESSION = [];
+            if (ini_get("session.use_cookies")) {
+                $params = session_get_cookie_params();
+                setcookie(session_name(), '', time() - 42000,
+                    $params["path"], $params["domain"],
+                    $params["secure"], $params["httponly"]
+                );
+            }
+            session_destroy();
+
+            jsonResponse([
+                'success' => true,
+                'message' => "Sessão encerrada com sucesso."
+            ]);
+            break;
+
+        // -------------------------------------------------------------
+        // ME: Verificar sessão ativa
+        // -------------------------------------------------------------
+        case 'me':
+            if (isset($_SESSION['wms_user'])) {
+                jsonResponse([
+                    'success' => true,
+                    'user' => $_SESSION['wms_user']
+                ]);
+            } else {
+                jsonError("Não autenticado.", 401);
+            }
             break;
 
         default:

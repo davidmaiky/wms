@@ -14,23 +14,17 @@ const App = {
     currentCameraIndex: 0,
 
     init() {
+        // Configurar interceptador fetch global para lidar com 401
+        this.setupFetchInterceptor();
+
         // Inicializar áudio e leitor
         this.soundEnabled = localStorage.getItem('wms_sound') !== '0';
         window.soundEngine.setEnabled(this.soundEnabled);
         this.updateSoundIcon();
 
-        this.atualizarOperadorHeader();
-
         this.scanner = new ScannerManager((code, type) => {
             this.handleBarcodeScan(code, type);
         });
-
-        // Carregar configurações do servidor
-        this.carregarConfiguracoes();
-
-        // Carregar estatísticas e pedidos iniciais
-        this.carregarStats();
-        this.buscarPedidos();
 
         // Registrar listener de enter no input manual
         const inputManual = document.getElementById('inputManualBarcode');
@@ -41,6 +35,59 @@ const App = {
                 }
             });
         }
+
+        // Verificar se há uma sessão de login ativa
+        this.checkSession().then(authenticated => {
+            if (authenticated) {
+                this.ocultarLoginScreen();
+                this.carregarDadosIniciais();
+            } else {
+                this.exibirLoginScreen();
+            }
+        });
+    },
+
+    setupFetchInterceptor() {
+        const originalFetch = window.fetch;
+        const self = this;
+        window.fetch = async function(...args) {
+            try {
+                const res = await originalFetch(...args);
+                if (res.status === 401) {
+                    // Ignora se for a própria chamada de "me"
+                    const url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
+                    if (!url.includes('action=me') && !url.includes('action=login')) {
+                        self.exibirLoginScreen();
+                    }
+                }
+                return res;
+            } catch (err) {
+                console.error("Fetch error:", err);
+                throw err;
+            }
+        };
+    },
+
+    async checkSession() {
+        try {
+            const res = await fetch('api/usuarios.php?action=me');
+            const data = await res.json();
+            if (data.success && data.user) {
+                this.operador = data.user.nome;
+                localStorage.setItem('wms_operador', data.user.nome);
+                this.atualizarOperadorHeader();
+                return true;
+            }
+        } catch (e) {
+            console.error('Erro na checagem de sessão:', e);
+        }
+        return false;
+    },
+
+    carregarDadosIniciais() {
+        this.carregarConfiguracoes();
+        this.carregarStats();
+        this.buscarPedidos();
     },
 
     atualizarOperadorHeader() {
@@ -1444,7 +1491,7 @@ const App = {
             const dataCriado = u.criado_em ? new Date(u.criado_em).toLocaleDateString('pt-BR') : '-';
 
             // PIN mascarado
-            const pinDisplay = u.pin ? `<span class="font-mono" style="color: var(--text-secondary); background: var(--bg-primary); padding: 2px 6px; border-radius: 4px;">••••</span>` : '<span style="color: var(--text-muted);">-</span>';
+            const pinDisplay = u.has_pin ? `<span class="font-mono" style="color: var(--text-secondary); background: var(--bg-primary); padding: 2px 6px; border-radius: 4px;">••••</span>` : '<span style="color: var(--text-muted);">-</span>';
 
             html += `
                 <tr>
@@ -1498,6 +1545,7 @@ const App = {
         document.getElementById('usuarioId').value = '';
         document.getElementById('usuarioStatus').value = 'ativo';
         document.getElementById('usuarioFuncao').value = 'operador';
+        document.getElementById('usuarioPin').placeholder = 'Digite a senha';
         this.selecionarCorAvatar('#3b82f6');
         document.getElementById('modalUsuarioTitulo').innerHTML = '<i class="fa-solid fa-user-plus"></i> Novo Usuário';
         document.getElementById('btnSalvarUsuario').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Salvar Usuário';
@@ -1521,7 +1569,8 @@ const App = {
             document.getElementById('usuarioEmail').value = u.email || '';
             document.getElementById('usuarioFuncao').value = u.funcao || 'operador';
             document.getElementById('usuarioStatus').value = u.status || 'ativo';
-            document.getElementById('usuarioPin').value = u.pin || '';
+            document.getElementById('usuarioPin').value = '';
+            document.getElementById('usuarioPin').placeholder = 'Deixe em branco para manter a senha';
             this.selecionarCorAvatar(u.avatar_cor || '#3b82f6');
 
             document.getElementById('modalUsuarioTitulo').innerHTML = `<i class="fa-solid fa-user-pen"></i> Editar Usuário: ${u.nome}`;
@@ -1716,6 +1765,89 @@ const App = {
 
     fecharModais() {
         document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+    },
+
+    exibirLoginScreen() {
+        const loginScreen = document.getElementById('login-screen');
+        if (loginScreen) {
+            loginScreen.classList.add('active');
+        }
+        const email = document.getElementById('loginEmail');
+        const senha = document.getElementById('loginSenha');
+        const errMsg = document.getElementById('loginErrorMessage');
+        if (email) email.value = '';
+        if (senha) senha.value = '';
+        if (errMsg) errMsg.textContent = '';
+        if (email) email.focus();
+    },
+
+    ocultarLoginScreen() {
+        const loginScreen = document.getElementById('login-screen');
+        if (loginScreen) {
+            loginScreen.classList.remove('active');
+        }
+    },
+
+    async efetuarLogin(e) {
+        if (e) e.preventDefault();
+
+        const email = document.getElementById('loginEmail').value.trim();
+        const senha = document.getElementById('loginSenha').value.trim();
+        const errMsg = document.getElementById('loginErrorMessage');
+
+        if (!email || !senha) {
+            if (errMsg) errMsg.textContent = 'E-mail e senha são obrigatórios.';
+            return;
+        }
+
+        if (errMsg) errMsg.textContent = '';
+
+        try {
+            const res = await fetch('api/usuarios.php?action=login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ email, senha })
+            });
+            const data = await res.json();
+
+            if (data.success && data.user) {
+                this.operador = data.user.nome;
+                localStorage.setItem('wms_operador', data.user.nome);
+                this.atualizarOperadorHeader();
+                this.ocultarLoginScreen();
+                this.carregarDadosIniciais();
+                this.toast('Login realizado com sucesso!', 'success');
+            } else {
+                if (errMsg) errMsg.textContent = data.error || 'E-mail ou senha incorretos.';
+                window.soundEngine.playError();
+            }
+        } catch (err) {
+            console.error('Erro de login:', err);
+            if (errMsg) errMsg.textContent = 'Erro ao se conectar ao servidor.';
+            window.soundEngine.playError();
+        }
+    },
+
+    async logout() {
+        if (!confirm('Deseja realmente sair do sistema?')) return;
+
+        try {
+            const res = await fetch('api/usuarios.php?action=logout', {
+                method: 'POST'
+            });
+            const data = await res.json();
+            if (data.success) {
+                localStorage.removeItem('wms_operador');
+                this.exibirLoginScreen();
+                this.toast('Você saiu do sistema.', 'info');
+            }
+        } catch (e) {
+            console.error('Erro ao realizar logout:', e);
+            localStorage.removeItem('wms_operador');
+            this.exibirLoginScreen();
+        }
     },
 
     // --- TOAST NOTIFICATIONS ---

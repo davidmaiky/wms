@@ -68,6 +68,9 @@
                 <button class="btn btn-secondary btn-icon" onclick="App.toggleFullscreen()" title="Tela Cheia (F11)">
                     <i class="fa-solid fa-expand" id="iconFullscreen"></i>
                 </button>
+                <button class="btn btn-danger btn-icon" onclick="App.logout()" title="Sair do Sistema (Logout)">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
             </div>
         </div>
     </header>
@@ -719,8 +722,8 @@
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
                         <div class="form-group">
-                            <label for="usuarioPin"><i class="fa-solid fa-key"></i> PIN / Senha Rápida</label>
-                            <input type="text" id="usuarioPin" class="input-control font-mono" placeholder="Ex: 1234" maxlength="12">
+                            <label for="usuarioPin"><i class="fa-solid fa-key"></i> Senha / PIN de Acesso</label>
+                            <input type="password" id="usuarioPin" class="input-control font-mono" placeholder="Deixe em branco para manter" maxlength="12">
                         </div>
                         <div class="form-group">
                             <label><i class="fa-solid fa-palette"></i> Cor do Avatar</label>
@@ -842,6 +845,43 @@
 
     <!-- Área de Impressão (Romaneios e Etiquetas de Volumes) -->
     <div id="printArea" class="print-area"></div>
+
+    <!-- Tela de Login dos Operadores (Glassmorphism) -->
+    <div id="login-screen" class="login-overlay active">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="login-logo">
+                    <i class="fa-solid fa-boxes-packing"></i>
+                </div>
+                <h2 class="login-title">WMS PRIME</h2>
+                <p class="login-subtitle">Conferência & Separação Logística</p>
+            </div>
+            
+            <form id="loginForm" onsubmit="App.efetuarLogin(event)" class="login-form">
+                <div class="form-group">
+                    <label for="loginEmail">
+                        <i class="fa-solid fa-envelope"></i> Usuário / E-mail
+                    </label>
+                    <input type="email" id="loginEmail" class="input-control" required placeholder="Ex: david@primepro.com.br">
+                </div>
+
+                <div class="form-group">
+                    <label for="loginSenha">
+                        <i class="fa-solid fa-lock"></i> Senha de Acesso
+                    </label>
+                    <input type="password" id="loginSenha" class="input-control" required placeholder="Digite sua senha ou PIN">
+                </div>
+
+                <div style="margin-top: 0.5rem;">
+                    <button type="submit" class="btn btn-primary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.85rem; font-size: 0.95rem; font-weight: 700;">
+                        <i class="fa-solid fa-right-from-bracket"></i> Entrar no Sistema
+                    </button>
+                </div>
+                
+                <div id="loginErrorMessage" style="color: var(--color-danger); text-align: center; font-size: 0.85rem; font-weight: 600; min-height: 1.2rem; margin-top: 0.5rem;"></div>
+            </form>
+        </div>
+    </div>
 
     <!-- Application JavaScript Engine -->
     <script src="js/audio.js"></script>

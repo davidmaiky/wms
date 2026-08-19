@@ -33,3 +33,44 @@ function jsonError($message, $statusCode = 400, $details = null) {
         'details' => $details
     ], $statusCode);
 }
+
+// Iniciar sessão PHP para autenticação dos operadores
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+/**
+ * Verifica se o operador está autenticado.
+ * Bloqueia requisições não autorizadas, exceto para a ação de login.
+ */
+function checkAuth() {
+    // Se for execução via CLI (por exemplo, scripts de migração), permitir
+    if (PHP_SAPI === 'cli') {
+        return;
+    }
+
+    $script = basename($_SERVER['SCRIPT_NAME']);
+    $action = $_GET['action'] ?? $_POST['action'] ?? '';
+
+    // Se a ação não estiver na query/post, verificar se está no corpo JSON
+    if (empty($action)) {
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (is_array($input) && isset($input['action'])) {
+            $action = $input['action'];
+        }
+    }
+
+    // Permitir a ação de login sem autenticação
+    if ($script === 'usuarios.php' && $action === 'login') {
+        return;
+    }
+
+    // Se a sessão não estiver ativa, retorna erro 401 Unauthorized
+    if (empty($_SESSION['wms_user'])) {
+        jsonError("Não autorizado. Por favor, faça login.", 401);
+    }
+}
+
+// Executar verificação em todas as requisições web
+checkAuth();
+

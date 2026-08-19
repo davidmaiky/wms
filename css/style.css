@@ -1846,3 +1846,128 @@ button, .btn, .nav-btn, .filter-chip, .status-pill, .operator-badge, .color-swat
         display: none !important;
     }
 }
+
+/* ==========================================================================
+   TELA DE LOGIN (SECURITY & GLASSMORPHISM)
+   ========================================================================== */
+.login-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: radial-gradient(circle at center, #111827 0%, #030712 100%);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 9999; /* Garante que fique acima de tudo */
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    animation: loginFadeIn 0.3s ease-out;
+}
+
+.login-overlay.active {
+    display: flex;
+}
+
+@keyframes loginFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.login-card {
+    background: rgba(17, 24, 39, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-xl);
+    width: 100%;
+    max-width: 440px;
+    padding: 3rem 2.5rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    display: flex;
+    flex-direction: column;
+    animation: loginScaleUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes loginScaleUp {
+    from { transform: scale(0.92); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.login-logo {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 1.25rem auto;
+    background: linear-gradient(135deg, var(--color-primary) 0%, #1e40af 100%);
+    color: #ffffff;
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.login-title {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: 0.35rem;
+    letter-spacing: -0.02em;
+    background: linear-gradient(to right, #ffffff, #94a3b8);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.login-subtitle {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.login-form .form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.login-form label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.login-form .input-control {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 0.85rem 1rem;
+    border-radius: var(--radius-md);
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+}
+
+.login-form .input-control:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    background: rgba(15, 23, 42, 0.8);
+}
+
