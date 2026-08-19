@@ -218,7 +218,10 @@ const App = {
                     </td>
                     <td>${badgeWms}</td>
                     <td style="color: var(--text-secondary);">${conf.operador || '-'}</td>
-                    <td style="text-align: right;">
+                    <td style="text-align: right; white-space: nowrap;">
+                        <button class="btn btn-sm btn-secondary" onclick="App.abrirRomaneio(${numPedido})" title="Visualizar Romaneio do Pedido #${numPedido}">
+                            <i class="fa-solid fa-file-invoice"></i> Romaneio
+                        </button>
                         <button class="btn btn-sm ${btnActionClass}" onclick="App.iniciarConferencia(${numPedido})">
                             ${btnActionText}
                         </button>
@@ -672,89 +675,239 @@ const App = {
         }
     },
 
-    // --- IMPRESSÃO DE ROMANEIO & ETIQUETAS ---
-    imprimirRomaneio() {
-        if (!this.conferenciaAtiva) return;
-        const conf = this.conferenciaAtiva.conferencia;
-        const itens = this.conferenciaAtiva.itens || [];
-        const vols = this.conferenciaAtiva.volumes || [];
+    // --- IMPRESSÃO & VISUALIZAÇÃO DE ROMANEIO & ETIQUETAS ---
+    gerarRomaneioHTML(dados, svgPrefix = 'modal') {
+        const conf = dados.conferencia || {};
+        const itens = dados.itens || [];
+        const vols = dados.volumes || [];
 
-        const printDiv = document.getElementById('printArea');
-        printDiv.innerHTML = `
-            <div style="font-family: Arial, sans-serif; padding: 20px; color: #000; background: #fff;">
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">
+        const dataEmissao = new Date().toLocaleString('pt-BR');
+        const numPedido = conf.numero_pedido || '0';
+        const barcodeId = `barcodeRomaneio_${svgPrefix}`;
+        
+        let statusBadge = 'Em Separação';
+        let statusBg = '#f59e0b';
+        let statusColor = '#ffffff';
+        if (conf.status === 'conferido') {
+            statusBadge = '100% Conferido';
+            statusBg = '#10b981';
+        } else if (conf.status === 'divergencia') {
+            statusBadge = 'Com Divergência';
+            statusBg = '#ef4444';
+        } else if (conf.status === 'pendente') {
+            statusBadge = 'Pendente';
+            statusBg = '#64748b';
+        }
+
+        const totalQtdEsperada = conf.quantidade_total_esperada || itens.reduce((a, b) => a + (parseFloat(b.quantidade_pedida) || 0), 0);
+        const totalQtdConferida = conf.quantidade_total_conferida || itens.reduce((a, b) => a + (parseFloat(b.quantidade_conferida) || 0), 0);
+
+        const html = `
+            <div class="romaneio-doc" style="font-family: Arial, Helvetica, sans-serif; color: #0f172a; background: #ffffff; padding: 20px; line-height: 1.4;">
+                <!-- Header do Romaneio -->
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px;">
                     <div>
-                        <h2 style="margin: 0; font-size: 20px;">ROMANEIO DE CONFERÊNCIA & EXPEDIÇÃO</h2>
-                        <span style="font-size: 13px;">WMS PRIME PRO - SIGE CLOUD</span>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                            <span style="background: #2563eb; color: #ffffff; font-weight: 800; font-size: 13px; padding: 3px 8px; border-radius: 4px; letter-spacing: 0.5px;">WMS LOGÍSTICA</span>
+                            <span style="font-size: 12px; color: #64748b; font-weight: 600;">INTEGRAÇÃO SIGE CLOUD</span>
+                        </div>
+                        <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #0f172a;">ROMANEIO DE CONFERÊNCIA & EXPEDIÇÃO</h2>
                     </div>
                     <div style="text-align: right;">
-                        <svg id="barcodeRomaneioPedido"></svg>
+                        <svg id="${barcodeId}"></svg>
                     </div>
                 </div>
 
-                <table style="width: 100%; font-size: 13px; margin-bottom: 15px; border-collapse: collapse;">
+                <!-- Grid de Informações do Pedido -->
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 13px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
                     <tr>
-                        <td style="padding: 4px 0;"><strong>Pedido Nº:</strong> #${conf.numero_pedido}</td>
-                        <td style="padding: 4px 0;"><strong>Data Conferência:</strong> ${new Date().toLocaleString('pt-BR')}</td>
+                        <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; width: 33%;">
+                            <span style="display: block; font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 700;">Número do Pedido</span>
+                            <strong style="font-size: 16px; color: #0f172a;">#${numPedido}</strong>
+                        </td>
+                        <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; width: 34%;">
+                            <span style="display: block; font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 700;">Cliente / Destinatário</span>
+                            <strong style="color: #0f172a;">${conf.cliente || 'Consumidor Final'}</strong>
+                        </td>
+                        <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; width: 33%;">
+                            <span style="display: block; font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 700;">Status Conferência</span>
+                            <span style="display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; background: ${statusBg}; color: ${statusColor};">
+                                ${statusBadge}
+                            </span>
+                        </td>
                     </tr>
                     <tr>
-                        <td style="padding: 4px 0;"><strong>Cliente:</strong> ${conf.cliente}</td>
-                        <td style="padding: 4px 0;"><strong>Operador:</strong> ${conf.operador || 'David'}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 4px 0;"><strong>Status:</strong> ${conf.status.toUpperCase()}</td>
-                        <td style="padding: 4px 0;"><strong>Total Volumes:</strong> ${vols.length} volume(s)</td>
+                        <td style="padding: 8px 12px;">
+                            <span style="display: block; font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 700;">Operador</span>
+                            <span>${conf.operador || 'David'}</span>
+                        </td>
+                        <td style="padding: 8px 12px;">
+                            <span style="display: block; font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 700;">Unidades Conferidas</span>
+                            <strong>${totalQtdConferida} / ${totalQtdEsperada} unidades</strong>
+                        </td>
+                        <td style="padding: 8px 12px;">
+                            <span style="display: block; font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 700;">Data & Hora</span>
+                            <span>${dataEmissao}</span>
+                        </td>
                     </tr>
                 </table>
 
-                <h3 style="font-size: 15px; margin: 15px 0 8px 0; border-bottom: 1px solid #ccc; padding-bottom: 4px;">ITENS CONFERIDOS</h3>
-                <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px;">
-                    <thead>
-                        <tr style="background: #f0f0f0;">
-                            <th style="border: 1px solid #000; padding: 6px; text-align: left;">SKU</th>
-                            <th style="border: 1px solid #000; padding: 6px; text-align: left;">Descrição</th>
-                            <th style="border: 1px solid #000; padding: 6px; text-align: center;">EAN</th>
-                            <th style="border: 1px solid #000; padding: 6px; text-align: center;">Pedida</th>
-                            <th style="border: 1px solid #000; padding: 6px; text-align: center;">Conferida</th>
-                            <th style="border: 1px solid #000; padding: 6px; text-align: center;">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${itens.map(it => `
-                            <tr>
-                                <td style="border: 1px solid #000; padding: 6px;">${it.codigo_produto}</td>
-                                <td style="border: 1px solid #000; padding: 6px;">${it.descricao}</td>
-                                <td style="border: 1px solid #000; padding: 6px; text-align: center;">${it.ean || '-'}</td>
-                                <td style="border: 1px solid #000; padding: 6px; text-align: center;">${it.quantidade_pedida}</td>
-                                <td style="border: 1px solid #000; padding: 6px; text-align: center; font-weight: bold;">${it.quantidade_conferida}</td>
-                                <td style="border: 1px solid #000; padding: 6px; text-align: center;">${it.status.toUpperCase()}</td>
+                <!-- Tabela de Itens -->
+                <div style="margin-bottom: 18px;">
+                    <h3 style="font-size: 13px; font-weight: 700; color: #0f172a; text-transform: uppercase; margin: 0 0 6px 0; border-bottom: 1.5px solid #0f172a; padding-bottom: 3px;">
+                        Itens do Pedido (${itens.length} produto${itens.length === 1 ? '' : 's'})
+                    </h3>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                        <thead>
+                            <tr style="background: #f1f5f9; color: #0f172a;">
+                                <th style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; width: 15%;">SKU</th>
+                                <th style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left;">Descrição do Produto</th>
+                                <th style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center; width: 18%;">EAN / Cód. Barras</th>
+                                <th style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center; width: 10%;">Qtd Ped.</th>
+                                <th style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center; width: 10%;">Qtd Conf.</th>
+                                <th style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center; width: 12%;">Status</th>
                             </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            ${itens.map((it, idx) => {
+                                const bg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
+                                const st = (it.status || 'pendente').toUpperCase();
+                                let corSt = '#64748b';
+                                if (st === 'CONFERIDO') corSt = '#16a34a';
+                                else if (st === 'PARCIAL') corSt = '#d97706';
+                                return `
+                                    <tr style="background: ${bg};">
+                                        <td style="border: 1px solid #cbd5e1; padding: 5px 8px; font-family: monospace; font-weight: 700;">${it.codigo_produto}</td>
+                                        <td style="border: 1px solid #cbd5e1; padding: 5px 8px;">${it.descricao}</td>
+                                        <td style="border: 1px solid #cbd5e1; padding: 5px 8px; text-align: center; font-family: monospace;">${it.ean || '-'}</td>
+                                        <td style="border: 1px solid #cbd5e1; padding: 5px 8px; text-align: center;">${it.quantidade_pedida}</td>
+                                        <td style="border: 1px solid #cbd5e1; padding: 5px 8px; text-align: center; font-weight: 700;">${it.quantidade_conferida}</td>
+                                        <td style="border: 1px solid #cbd5e1; padding: 5px 8px; text-align: center; font-weight: 700; color: ${corSt};">${st}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
 
-                <div style="margin-top: 40px; display: flex; justify-content: space-between;">
-                    <div style="width: 45%; border-top: 1px solid #000; text-align: center; padding-top: 5px; font-size: 12px;">
-                        Assinatura do Conferente / Operador
+                <!-- Volumes Registrados (se houver) -->
+                ${vols.length > 0 ? `
+                    <div style="margin-bottom: 18px;">
+                        <h3 style="font-size: 13px; font-weight: 700; color: #0f172a; text-transform: uppercase; margin: 0 0 6px 0; border-bottom: 1.5px solid #0f172a; padding-bottom: 3px;">
+                            Volumes / Caixas Embaladas (${vols.length} volume${vols.length === 1 ? '' : 's'})
+                        </h3>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                            <thead>
+                                <tr style="background: #f1f5f9; color: #0f172a;">
+                                    <th style="border: 1px solid #cbd5e1; padding: 5px 8px; text-align: center; width: 80px;">Volume</th>
+                                    <th style="border: 1px solid #cbd5e1; padding: 5px 8px; text-align: left;">Etiqueta / Rastreio</th>
+                                    <th style="border: 1px solid #cbd5e1; padding: 5px 8px; text-align: center;">Peso (KG)</th>
+                                    <th style="border: 1px solid #cbd5e1; padding: 5px 8px; text-align: left;">Dimensões</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${vols.map((v, idx) => `
+                                    <tr style="background: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                                        <td style="border: 1px solid #cbd5e1; padding: 5px 8px; text-align: center; font-weight: 700;">${v.numero_volume} / ${v.total_volumes}</td>
+                                        <td style="border: 1px solid #cbd5e1; padding: 5px 8px; font-family: monospace;">${v.etiqueta_codigo || '-'}</td>
+                                        <td style="border: 1px solid #cbd5e1; padding: 5px 8px; text-align: center;">${v.peso_kg ? v.peso_kg + ' kg' : '-'}</td>
+                                        <td style="border: 1px solid #cbd5e1; padding: 5px 8px;">${v.dimensoes || '-'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
                     </div>
-                    <div style="width: 45%; border-top: 1px solid #000; text-align: center; padding-top: 5px; font-size: 12px;">
-                        Assinatura do Motorista / Transportadora
+                ` : ''}
+
+                <!-- Assinaturas -->
+                <div style="margin-top: 35px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
+                    <div style="border-top: 1px solid #0f172a; text-align: center; padding-top: 6px;">
+                        <div style="font-weight: 700; font-size: 12px; color: #0f172a;">${conf.operador || 'Conferente Responsável'}</div>
+                        <div style="font-size: 11px; color: #64748b;">Assinatura do Conferente / Operador</div>
+                    </div>
+                    <div style="border-top: 1px solid #0f172a; text-align: center; padding-top: 6px;">
+                        <div style="font-weight: 700; font-size: 12px; color: #0f172a;">Transportadora / Motorista</div>
+                        <div style="font-size: 11px; color: #64748b;">Nome Legível e Assinatura</div>
                     </div>
                 </div>
             </div>
         `;
 
-        // Gerar código de barras
-        if (window.JsBarcode) {
-            JsBarcode('#barcodeRomaneioPedido', String(conf.numero_pedido), {
-                format: 'CODE128',
-                height: 35,
-                width: 1.5,
-                displayValue: true,
-                fontSize: 12
-            });
+        return { html, barcodeId, numPedido };
+    },
+
+    async abrirRomaneio(numeroPedido = null) {
+        let dadosRomaneio = null;
+
+        if (numeroPedido && (!this.conferenciaAtiva || this.conferenciaAtiva.conferencia.numero_pedido != numeroPedido)) {
+            this.toast(`Carregando romaneio do pedido #${numeroPedido}...`, 'info');
+            try {
+                const res = await fetch(`api/conferencia.php?action=romaneio&numero_pedido=${numeroPedido}`);
+                const data = await res.json();
+                if (data.success && data.conferencia) {
+                    dadosRomaneio = data;
+                } else {
+                    this.toast(data.error || 'Não foi possível carregar dados do romaneio.', 'error');
+                    return;
+                }
+            } catch (e) {
+                this.toast('Erro ao buscar dados do romaneio.', 'error');
+                return;
+            }
+        } else if (this.conferenciaAtiva) {
+            dadosRomaneio = this.conferenciaAtiva;
+        } else {
+            this.toast('Selecione ou inicie um pedido para visualizar o romaneio.', 'warning');
+            return;
         }
 
+        this.ultimoRomaneioDados = dadosRomaneio;
+
+        // Renderizar no modal e na área de impressão
+        const modalDiv = document.getElementById('modalRomaneioConteudo');
+        const printDiv = document.getElementById('printArea');
+
+        const { html: modalHtml, barcodeId: modalBarcodeId, numPedido } = this.gerarRomaneioHTML(dadosRomaneio, 'modal');
+        const { html: printHtml, barcodeId: printBarcodeId } = this.gerarRomaneioHTML(dadosRomaneio, 'print');
+
+        if (modalDiv) modalDiv.innerHTML = modalHtml;
+        if (printDiv) printDiv.innerHTML = printHtml;
+
+        // Gerar código de barras
+        if (window.JsBarcode) {
+            try {
+                JsBarcode(`#${modalBarcodeId}`, String(numPedido), {
+                    format: 'CODE128',
+                    height: 32,
+                    width: 1.4,
+                    displayValue: true,
+                    fontSize: 11
+                });
+                JsBarcode(`#${printBarcodeId}`, String(numPedido), {
+                    format: 'CODE128',
+                    height: 32,
+                    width: 1.4,
+                    displayValue: true,
+                    fontSize: 11
+                });
+            } catch (err) {
+                console.warn('JsBarcode barcode error:', err);
+            }
+        }
+
+        // Abrir Modal
+        document.getElementById('modalRomaneio').classList.add('active');
+    },
+
+    imprimirRomaneio(numeroPedido = null) {
+        this.abrirRomaneio(numeroPedido);
+    },
+
+    imprimirRomaneioAtual() {
+        if (!this.ultimoRomaneioDados && !this.conferenciaAtiva) {
+            this.toast('Nenhum romaneio carregado para impressão.', 'warning');
+            return;
+        }
         window.print();
     },
 
@@ -835,8 +988,11 @@ const App = {
                         <td>${c.total_volumes_registrados || 0}</td>
                         <td style="font-size: 0.8rem; color: var(--text-muted);">${c.data_inicio ? new Date(c.data_inicio).toLocaleString('pt-BR') : '-'}</td>
                         <td style="font-size: 0.8rem; color: var(--text-muted);">${c.data_fim ? new Date(c.data_fim).toLocaleString('pt-BR') : '-'}</td>
-                        <td style="text-align: right;">
-                            <button class="btn btn-sm btn-primary" onclick="App.iniciarConferencia(${c.numero_pedido})">
+                        <td style="text-align: right; white-space: nowrap;">
+                            <button class="btn btn-sm btn-secondary" onclick="App.abrirRomaneio(${c.numero_pedido})" title="Visualizar Romaneio">
+                                <i class="fa-solid fa-file-invoice"></i> Romaneio
+                            </button>
+                            <button class="btn btn-sm btn-primary" onclick="App.iniciarConferencia(${c.numero_pedido})" title="Abrir Separação">
                                 <i class="fa-solid fa-folder-open"></i> Abrir
                             </button>
                         </td>

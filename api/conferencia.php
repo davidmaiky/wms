@@ -414,6 +414,76 @@ try {
             ]);
             break;
 
+        case 'romaneio':
+        case 'obter':
+            $confId = (int)($_GET['conferencia_id'] ?? $_POST['conferencia_id'] ?? 0);
+            $numPed = (int)($_GET['numero_pedido'] ?? $_POST['numero_pedido'] ?? 0);
+
+            if ($confId > 0) {
+                retornarDadosConferencia($confId, "Dados do romaneio");
+                break;
+            }
+
+            if ($numPed > 0) {
+                $stmt = $db->prepare("SELECT id FROM conferencias WHERE numero_pedido = ? ORDER BY id DESC LIMIT 1");
+                $stmt->execute([$numPed]);
+                $c = $stmt->fetch();
+                if ($c) {
+                    retornarDadosConferencia((int)$c['id'], "Dados do romaneio");
+                    break;
+                }
+
+                // Se ainda não foi iniciada localmente, buscar do SIGE e retornar dados formatados
+                $pedido = $sige->obterPedidoPorCodigo($numPed);
+                if (!$pedido) {
+                    jsonError("Pedido #$numPed não encontrado.", 404);
+                }
+
+                $items = $pedido['Items'] ?? [];
+                $itensFormatados = [];
+                $qtdTotal = 0;
+                foreach ($items as $it) {
+                    $qtd = (float)($it['Quantidade'] ?? 0);
+                    $qtdTotal += $qtd;
+                    $itensFormatados[] = [
+                        'id' => 0,
+                        'codigo_produto' => trim($it['Codigo'] ?? ''),
+                        'ean' => trim($it['EAN'] ?? $it['Ean'] ?? $it['CodigoBarra'] ?? ''),
+                        'descricao' => trim($it['Descricao'] ?? ''),
+                        'quantidade_pedida' => $qtd,
+                        'quantidade_conferida' => 0,
+                        'status' => 'pendente'
+                    ];
+                }
+
+                $confMock = [
+                    'id' => 0,
+                    'numero_pedido' => $numPed,
+                    'cliente' => $pedido['Cliente'] ?? 'Consumidor',
+                    'operador' => 'Pendente',
+                    'status' => 'pendente',
+                    'quantidade_total_esperada' => $qtdTotal,
+                    'quantidade_total_conferida' => 0,
+                    'porcentagem' => 0,
+                    'criado_em' => $pedido['Data'] ?? date('Y-m-d H:i:s'),
+                    'data_inicio' => null,
+                    'data_fim' => null
+                ];
+
+                jsonResponse([
+                    'success' => true,
+                    'message' => 'Dados do pedido',
+                    'conferencia' => $confMock,
+                    'itens' => $itensFormatados,
+                    'volumes' => [],
+                    'logs' => []
+                ]);
+                break;
+            }
+
+            jsonError("Informe o ID da conferência ou número do pedido.");
+            break;
+
         default:
             jsonError("Ação inválida.");
     }

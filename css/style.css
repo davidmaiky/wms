@@ -830,21 +830,41 @@ code, pre, .font-mono {
 }
 
 /* Print Stylesheet (Romaneio & Etiquetas) */
+.print-area {
+    display: none;
+}
+
 @media print {
+    @page {
+        margin: 8mm;
+        size: auto;
+    }
+    html, body {
+        background: #ffffff !important;
+        color: #000000 !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
     body * {
-        visibility: hidden;
+        visibility: hidden !important;
     }
     .print-area, .print-area * {
-        visibility: visible;
+        visibility: visible !important;
     }
     .print-area {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-        color: #000 !important;
-        background: #fff !important;
-        padding: 20px;
+        display: block !important;
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        color: #000000 !important;
+        background: #ffffff !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        z-index: 9999999 !important;
+    }
+    .modal-overlay {
+        display: none !important;
     }
     .no-print {
         display: none !important;
