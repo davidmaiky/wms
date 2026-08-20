@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="remember-theme">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="theme-color" content="#090d16">
+    <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
@@ -14,751 +14,1020 @@
     <link rel="icon" type="image/svg+xml" href="css/icon.svg">
     <link rel="apple-touch-icon" href="css/icon.svg">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/style.css?v=2.0">
-    <!-- FontAwesome Icons -->
+
+    <!-- OneUI Framework Core CSS & Fonts -->
+    <link rel="stylesheet" href="assets/fonts/inter/inter.css">
+    <link rel="stylesheet" id="css-main" href="assets/css/oneui.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- JsBarcode for barcode generation -->
+
+    <!-- OneUI Theme Setter -->
+    <script src="assets/js/setTheme.js"></script>
+
+    <!-- Custom WMS Extensions -->
+    <link rel="stylesheet" href="css/style.css?v=2.5">
+
+    <!-- Barcode & QR Code Generators / Readers -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-    <!-- QRCode generator -->
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-    <!-- Local HTML5-QRCode Scanner -->
     <script src="js/html5-qrcode.min.js"></script>
 </head>
 
 <body>
-
-    <!-- App Header -->
-    <header class="app-header">
-        <div class="header-container">
-            <div class="brand-wrapper" onclick="App.navigate('pedidos')">
-                <div class="brand-icon">
-                    <i class="fa-solid fa-boxes-packing"></i>
-                </div>
-                <div class="brand-title">
-                    <h1>WMS PRIME <span id="networkStatusChip" class="brand-status-chip"><span
-                                class="status-dot"></span> Online</span></h1>
-                    <span>Conferência & Separação SIGE Cloud</span>
-                </div>
-            </div>
-
-            <!-- Navigation Menu -->
-            <nav class="nav-menu">
-                <button class="nav-btn active" data-view="pedidos" onclick="App.navigate('pedidos')">
-                    <i class="fa-solid fa-clipboard-list"></i> Pedidos
-                </button>
-                <button class="nav-btn" data-view="conferencia" id="btnNavConferencia"
-                    onclick="App.navigate('conferencia')">
-                    <i class="fa-solid fa-barcode"></i> Separação
-                </button>
-                <button class="nav-btn" data-view="historico" onclick="App.navigate('historico')">
-                    <i class="fa-solid fa-clock-rotate-left"></i> Histórico
-                </button>
-                <button class="nav-btn" data-view="eans" onclick="App.navigate('eans')">
-                    <i class="fa-solid fa-tags"></i> De-Para EAN
-                </button>
-                <button class="nav-btn" data-view="usuarios" onclick="App.navigate('usuarios')">
-                    <i class="fa-solid fa-users-gear"></i> Usuários
-                </button>
-                <button class="nav-btn" data-view="config" onclick="App.navigate('config')">
-                    <i class="fa-solid fa-gear"></i> Ajustes
-                </button>
-                <button class="nav-btn nav-btn-logout hide-desktop" id="btnNavLogout" onclick="App.logout()" title="Sair do Sistema">
-                    <i class="fa-solid fa-right-from-bracket" style="color: #ef4444;"></i> Sair
-                </button>
-            </nav>
-
-            <!-- Header Actions -->
-            <div class="header-actions">
-                <div class="operator-badge" id="btnOperatorBadge" onclick="App.logout()" title="Usuário conectado (Clique para sair)" style="cursor: pointer;">
-                    <div class="operator-avatar-mini" id="avatarMiniHeader">D</div>
-                    <span><strong id="lblOperadorHeader">David</strong></span>
-                </div>
-                <button class="btn btn-secondary btn-icon" id="btnToggleSound" onclick="App.toggleSound()"
-                    title="Ativar/Desativar Sons">
-                    <i class="fa-solid fa-volume-high" id="iconSound"></i>
-                </button>
-                <button class="btn btn-secondary btn-icon hide-mobile" onclick="App.toggleFullscreen()" title="Tela Cheia (F11)">
-                    <i class="fa-solid fa-expand" id="iconFullscreen"></i>
-                </button>
-                <button class="btn btn-danger btn-icon" id="btnLogoutHeader" onclick="App.logout()" title="Sair do Sistema (Logout)" style="display: inline-flex !important; visibility: visible !important;">
-                    <i class="fa-solid fa-right-from-bracket"></i>
-                </button>
-            </div>
-        </div>
-    </header>
-
-    <!-- Main Content Area -->
-    <main class="main-content">
+    <!-- Page Container -->
+    <!-- Available OneUI layout classes: sidebar-o, sidebar-dark, enable-page-overlay, side-scroll, page-header-fixed -->
+    <div id="page-container" class="sidebar-o sidebar-dark enable-page-overlay side-scroll page-header-fixed main-content-boxed">
 
         <!-- ===================================================================
-             VIEW 1: PEDIDOS & DASHBOARD
+             SIDEBAR NAVEGAÇÃO LATERAL (ONEUI)
              =================================================================== -->
-        <section id="view-pedidos" class="view-section active">
-            <!-- KPI Cards -->
-            <div class="kpi-grid">
-                <div class="kpi-card">
-                    <div class="kpi-icon blue">
-                        <i class="fa-solid fa-truck-ramp-box"></i>
-                    </div>
-                    <div class="kpi-info">
-                        <h3>Total Conferências</h3>
-                        <div class="kpi-value" id="kpiTotalConferencias">0</div>
-                    </div>
-                </div>
+        <nav id="sidebar" aria-label="Navegação Principal">
+            <!-- Sidebar Header / Logo -->
+            <div class="content-header">
+                <a class="fw-semibold text-dual d-flex align-items-center gap-2 text-decoration-none" href="javascript:void(0)" onclick="App.navigate('pedidos')">
+                    <span class="smini-visible">
+                        <i class="fa-solid fa-boxes-packing text-primary fs-5"></i>
+                    </span>
+                    <span class="smini-hide fs-5 tracking-wider d-flex align-items-center gap-2">
+                        <i class="fa-solid fa-boxes-packing text-primary"></i>
+                        <span>WMS <span class="fw-normal text-muted">PRIME</span></span>
+                    </span>
+                </a>
 
-                <div class="kpi-card">
-                    <div class="kpi-icon green">
-                        <i class="fa-solid fa-circle-check"></i>
-                    </div>
-                    <div class="kpi-info">
-                        <h3>Conferidos Hoje</h3>
-                        <div class="kpi-value" id="kpiConferidosHoje">0</div>
-                    </div>
-                </div>
-
-                <div class="kpi-card">
-                    <div class="kpi-icon yellow">
-                        <i class="fa-solid fa-dolly"></i>
-                    </div>
-                    <div class="kpi-info">
-                        <h3>Em Separação</h3>
-                        <div class="kpi-value" id="kpiEmSeparacao">0</div>
-                    </div>
-                </div>
-
-                <div class="kpi-card">
-                    <div class="kpi-icon red">
-                        <i class="fa-solid fa-triangle-exclamation"></i>
-                    </div>
-                    <div class="kpi-info">
-                        <h3>Divergências</h3>
-                        <div class="kpi-value" id="kpiDivergencias">0</div>
-                    </div>
-                </div>
-
-                <div class="kpi-card">
-                    <div class="kpi-icon purple" style="background: rgba(168, 85, 247, 0.15); color: #a855f7;">
-                        <i class="fa-solid fa-bullseye"></i>
-                    </div>
-                    <div class="kpi-info">
-                        <h3>Acurácia Operacional</h3>
-                        <div class="kpi-value" id="kpiTaxaAcuracia">100%</div>
-                    </div>
-                </div>
-
-                <div class="kpi-card">
-                    <div class="kpi-icon cyan" style="background: rgba(6, 182, 212, 0.15); color: #06b6d4;">
-                        <i class="fa-solid fa-stopwatch"></i>
-                    </div>
-                    <div class="kpi-info">
-                        <h3>Tempo Médio</h3>
-                        <div class="kpi-value" id="kpiTempoMedio">0 min</div>
-                    </div>
-                </div>
-
-                <div class="kpi-card">
-                    <div class="kpi-icon orange" style="background: rgba(249, 115, 22, 0.15); color: #f97316;">
-                        <i class="fa-solid fa-barcode"></i>
-                    </div>
-                    <div class="kpi-info">
-                        <h3>Peças Bipadas Hoje</h3>
-                        <div class="kpi-value" id="kpiItensBipadosHoje">0</div>
-                    </div>
-                </div>
-
-                <div class="kpi-card">
-                    <div class="kpi-icon teal" style="background: rgba(20, 184, 166, 0.15); color: #14b8a6;">
-                        <i class="fa-solid fa-boxes-stacked"></i>
-                    </div>
-                    <div class="kpi-info">
-                        <h3>Volumes Hoje</h3>
-                        <div class="kpi-value" id="kpiVolumesHoje">0</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Filtros de Busca de Pedidos SIGE -->
-            <div class="filter-card">
-                <!-- Quick Filter Chips -->
-                <div class="quick-filter-chips">
-                    <span
-                        style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-right: 0.35rem;"><i
-                            class="fa-solid fa-bolt"></i> Filtro:</span>
-                    <button type="button" class="filter-chip active" data-status-filter=""
-                        onclick="App.aplicarFiltroRapido('')">Todos</button>
-                    <button type="button" class="filter-chip" data-status-filter="Pedido Aprovado"
-                        onclick="App.aplicarFiltroRapido('Pedido Aprovado')"><i class="fa-solid fa-check"></i>
-                        Aprovados</button>
-                    <button type="button" class="filter-chip" data-status-filter="Pedido Faturado"
-                        onclick="App.aplicarFiltroRapido('Pedido Faturado')"><i class="fa-solid fa-truck"></i>
-                        Faturados</button>
-                    <button type="button" class="filter-chip" data-status-filter="Orçamento"
-                        onclick="App.aplicarFiltroRapido('Orçamento')"><i class="fa-regular fa-file-lines"></i>
-                        Orçamentos</button>
-                </div>
-
-                <form id="formFiltroPedidos" onsubmit="App.buscarPedidos(event)">
-                    <div class="filter-grid">
-                        <div class="form-group">
-                            <label for="filtroCodigo"><i class="fa-solid fa-hashtag"></i> Nº Pedido</label>
-                            <input type="number" id="filtroCodigo" class="input-control" placeholder="Ex: 161">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="filtroCliente"><i class="fa-solid fa-user"></i> Cliente</label>
-                            <input type="text" id="filtroCliente" class="input-control" placeholder="Nome ou CNPJ...">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="filtroStatus"><i class="fa-solid fa-filter"></i> Status SIGE</label>
-                            <select id="filtroStatus" class="select-control">
-                                <option value="">Todos os Status</option>
-                                <option value="Pedido Aprovado">Pedido Aprovado</option>
-                                <option value="Pedido Faturado">Pedido Faturado</option>
-                                <option value="Orçamento">Orçamento</option>
-                                <option value="Pedido Cancelado">Pedido Cancelado</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="filtroDataInicial"><i class="fa-regular fa-calendar"></i> De</label>
-                            <input type="date" id="filtroDataInicial" class="input-control">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="filtroDataFinal"><i class="fa-regular fa-calendar"></i> Até</label>
-                            <input type="date" id="filtroDataFinal" class="input-control">
-                        </div>
-
-                        <div style="display: flex; gap: 0.5rem;">
-                            <button type="submit" class="btn btn-primary" id="btnBuscarPedidos">
-                                <i class="fa-solid fa-magnifying-glass"></i> Buscar
-                            </button>
-                            <button type="button" class="btn btn-secondary" onclick="App.limparFiltros()"
-                                title="Limpar Filtros">
-                                <i class="fa-solid fa-rotate-left"></i>
-                            </button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Tabela de Pedidos -->
-            <div class="table-container">
-                <table class="wms-table">
-                    <thead>
-                        <tr>
-                            <th>Pedido</th>
-                            <th>Data</th>
-                            <th>Cliente</th>
-                            <th>Status SIGE</th>
-                            <th>Itens</th>
-                            <th>Status WMS</th>
-                            <th>Operador</th>
-                            <th style="text-align: right;">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="pedidosTableBody">
-                        <tr>
-                            <td colspan="8" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
-                                <i class="fa-solid fa-spinner fa-spin fa-2x"></i><br><br>Carregando pedidos do SIGE
-                                Cloud...
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-
-        <!-- ===================================================================
-             VIEW 2: SEPARAÇÃO & CONFERÊNCIA ATIVA
-             =================================================================== -->
-        <section id="view-conferencia" class="view-section">
-            <div id="conferenciaVazia" style="display: none; text-align: center; padding: 4rem 1rem;">
-                <i class="fa-solid fa-barcode fa-4x" style="color: var(--text-muted); margin-bottom: 1rem;"></i>
-                <h2>Nenhuma Conferência em Andamento</h2>
-                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Selecione um pedido na listagem para
-                    iniciar a separação.</p>
-                <button class="btn btn-primary btn-lg" onclick="App.navigate('pedidos')">
-                    <i class="fa-solid fa-arrow-left"></i> Ir para Lista de Pedidos
-                </button>
-            </div>
-
-            <div id="conferenciaAtivaContainer" class="picking-layout">
-                <!-- Sidebar Scanner -->
-                <aside class="picking-sidebar">
-                    <!-- Scanner Câmera Card -->
-                    <div class="scanner-card">
-                        <div class="scanner-header">
-                            <h3><i class="fa-solid fa-camera"></i> Leitor Câmera</h3>
-                            <div style="display: flex; gap: 0.35rem;">
-                                <button class="btn btn-secondary btn-sm" id="btnTorch" onclick="App.toggleTorch()"
-                                    title="Lanterna/Flash">
-                                    <i class="fa-solid fa-bolt"></i>
-                                </button>
-                                <button class="btn btn-secondary btn-sm" id="btnSwitchCamera"
-                                    onclick="App.switchCamera()" title="Alternar Câmera">
-                                    <i class="fa-solid fa-camera-rotate"></i>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="camera-container">
-                            <div id="reader"></div>
-                            <div class="scan-laser" id="scanLaser" style="display: none;"></div>
-                        </div>
-
-                        <div class="scanner-controls">
-                            <button class="btn btn-success btn-sm" id="btnStartCam" style="width: 100%;"
-                                onclick="App.startCamera()">
-                                <i class="fa-solid fa-play"></i> Ativar Câmera
-                            </button>
-                            <button class="btn btn-danger btn-sm" id="btnStopCam" style="width: 100%; display: none;"
-                                onclick="App.stopCamera()">
-                                <i class="fa-solid fa-stop"></i> Parar Câmera
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Bipagem Manual / Leitor Pistola USB -->
-                    <div class="manual-scan-box">
-                        <div class="form-group">
-                            <label for="inputManualBarcode">
-                                <i class="fa-solid fa-barcode"></i> Bipar / Digitar Código (SKU ou EAN)
-                            </label>
-                            <div style="display: flex; gap: 0.5rem;">
-                                <input type="text" id="inputManualBarcode" class="input-control font-mono"
-                                    placeholder="Bipe aqui ou digite..." autofocus>
-                                <button class="btn btn-primary" onclick="App.biparManual()" title="Confirmar Bipagem">
-                                    <i class="fa-solid fa-check"></i>
-                                </button>
-                            </div>
-                            <div id="scanStatusBanner"
-                                style="display: none; padding: 0.6rem 0.85rem; border-radius: var(--radius-md); font-size: 0.82rem; font-weight: 600; text-align: center; margin-top: 0.5rem;">
-                            </div>
-                            <span
-                                style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem; display: flex; align-items: center; gap: 0.35rem;">
-                                <i class="fa-solid fa-circle-info"></i> Pistolas USB/Bluetooth e leitores de código de
-                                barras são detectados automaticamente.
-                            </span>
-                        </div>
-                    </div>
-
-                    <!-- Gestão de Volumes / Caixas -->
-                    <div class="scanner-card">
-                        <div class="scanner-header">
-                            <h3><i class="fa-solid fa-box"></i> Volumes (<span id="lblTotalVolumes">0</span>)</h3>
-                            <button class="btn btn-primary btn-sm" onclick="App.modalNovoVolume()">
-                                <i class="fa-solid fa-plus"></i> Novo Volume
-                            </button>
-                        </div>
-                        <div id="listaVolumesContainer"
-                            style="padding: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; max-height: 180px; overflow-y: auto;">
-                            <span
-                                style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding: 0.5rem;">Nenhum
-                                volume embalado ainda.</span>
-                        </div>
-                    </div>
-                </aside>
-
-                <!-- Painel Principal de Separação -->
-                <main class="picking-main">
-                    <!-- Cartão Principal do Pedido & Barra de Progresso -->
-                    <div class="order-hero-card">
-                        <div class="order-hero-top">
-                            <div class="order-title-block">
-                                <h2>
-                                    Pedido #<span id="lblNumeroPedido">---</span>
-                                    <span class="badge badge-progress" id="badgeStatusConferencia">Em Separação</span>
-                                </h2>
-                                <p><i class="fa-solid fa-user"></i> <span id="lblClientePedido">---</span></p>
-                            </div>
-
-                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                                <button class="btn btn-secondary" onclick="App.imprimirRomaneio()"
-                                    title="Imprimir Romaneio de Separação">
-                                    <i class="fa-solid fa-print"></i> Romaneio
-                                </button>
-                                <button class="btn btn-secondary" onclick="App.reiniciarConferencia()"
-                                    title="Zerar contagem">
-                                    <i class="fa-solid fa-rotate-left"></i> Zerar
-                                </button>
-                                <button class="btn btn-danger" id="btnCancelarConferencia"
-                                    onclick="App.abrirModalCancelarConferencia()"
-                                    title="Cancelar Separação deste Pedido">
-                                    <i class="fa-solid fa-ban"></i> Cancelar
-                                </button>
-                                <button class="btn btn-success" id="btnFinalizarConferencia"
-                                    onclick="App.finalizarConferencia()">
-                                    <i class="fa-solid fa-check-double"></i> Finalizar Pedido
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Barra de Progresso Total -->
-                        <div class="progress-container">
-                            <div class="progress-labels">
-                                <span>Progresso da Conferência: <strong id="lblQtdConferidaTotal">0</strong> / <span
-                                        id="lblQtdEsperadaTotal">0</span> unidades</span>
-                                <span id="lblPorcentagemProgresso" style="color: var(--color-success);">0%</span>
-                            </div>
-                            <div class="progress-bar-track">
-                                <div class="progress-bar-fill" id="progressBarFill" style="width: 0%;"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Lista de Itens para Separação -->
-                    <div class="items-card-list" id="itensPickingList">
-                        <!-- Gerado via JavaScript -->
-                    </div>
-                </main>
-            </div>
-        </section>
-
-
-        <!-- ===================================================================
-             VIEW 3: HISTÓRICO & AUDITORIA DE CONFERÊNCIAS
-             =================================================================== -->
-        <section id="view-historico" class="view-section">
-            <div class="filter-card">
-                <div class="filter-grid" style="grid-template-columns: 1fr 200px auto;">
-                    <div class="form-group">
-                        <label for="filtroHistoricoBusca"><i class="fa-solid fa-magnifying-glass"></i> Buscar no
-                            Histórico</label>
-                        <input type="text" id="filtroHistoricoBusca" class="input-control"
-                            placeholder="Nº Pedido, Cliente ou Operador..." oninput="App.carregarHistorico()">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="filtroHistoricoStatus"><i class="fa-solid fa-filter"></i> Status</label>
-                        <select id="filtroHistoricoStatus" class="select-control" onchange="App.carregarHistorico()">
-                            <option value="">Todos</option>
-                            <option value="conferido">100% Conferido</option>
-                            <option value="divergencia">Com Divergência</option>
-                            <option value="em_separacao">Em Separação</option>
-                            <option value="cancelado">Cancelado</option>
-                        </select>
-                    </div>
-
-                    <button class="btn btn-primary" onclick="App.carregarHistorico()">
-                        <i class="fa-solid fa-rotate"></i> Atualizar
+                <!-- Extra / Close button on Mobile -->
+                <div class="d-flex align-items-center gap-1">
+                    <button type="button" class="btn btn-sm btn-alt-secondary d-lg-none" data-toggle="layout" data-action="sidebar_close">
+                        <i class="fa fa-fw fa-times"></i>
                     </button>
                 </div>
             </div>
 
-            <div class="table-container">
-                <table class="wms-table">
-                    <thead>
-                        <tr>
-                            <th>Nº Pedido</th>
-                            <th>Cliente</th>
-                            <th>Operador</th>
-                            <th>Status</th>
-                            <th>Unidades</th>
-                            <th>Volumes</th>
-                            <th>Início</th>
-                            <th>Fim</th>
-                            <th style="text-align: right;">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="historicoTableBody">
-                        <!-- Gerado dinamicamente -->
-                    </tbody>
-                </table>
-            </div>
-        </section>
+            <!-- Sidebar Navigation Menu -->
+            <div class="js-sidebar-scroll">
+                <div class="content-side">
+                    <ul class="nav-main">
+                        <li class="nav-main-heading">Operações</li>
+                        <li class="nav-main-item">
+                            <a class="nav-main-link nav-btn active" data-view="pedidos" href="javascript:void(0)" onclick="App.navigate('pedidos')">
+                                <i class="nav-main-link-icon fa-solid fa-clipboard-list"></i>
+                                <span class="nav-main-link-name">Pedidos & Dashboard</span>
+                            </a>
+                        </li>
+                        <li class="nav-main-item">
+                            <a class="nav-main-link nav-btn" data-view="conferencia" id="btnNavConferencia" href="javascript:void(0)" onclick="App.navigate('conferencia')">
+                                <i class="nav-main-link-icon fa-solid fa-barcode"></i>
+                                <span class="nav-main-link-name">Separação & Picking</span>
+                            </a>
+                        </li>
+                        <li class="nav-main-item">
+                            <a class="nav-main-link nav-btn" data-view="historico" href="javascript:void(0)" onclick="App.navigate('historico')">
+                                <i class="nav-main-link-icon fa-solid fa-clock-rotate-left"></i>
+                                <span class="nav-main-link-name">Histórico de Conferências</span>
+                            </a>
+                        </li>
 
+                        <li class="nav-main-heading">Mapeamento</li>
+                        <li class="nav-main-item">
+                            <a class="nav-main-link nav-btn" data-view="eans" href="javascript:void(0)" onclick="App.navigate('eans')">
+                                <i class="nav-main-link-icon fa-solid fa-tags"></i>
+                                <span class="nav-main-link-name">De-Para EAN ⇄ SKU</span>
+                            </a>
+                        </li>
+
+                        <li class="nav-main-heading">Administração</li>
+                        <li class="nav-main-item">
+                            <a class="nav-main-link nav-btn" data-view="usuarios" href="javascript:void(0)" onclick="App.navigate('usuarios')">
+                                <i class="nav-main-link-icon fa-solid fa-users-gear"></i>
+                                <span class="nav-main-link-name">Usuários & Equipe</span>
+                            </a>
+                        </li>
+                        <li class="nav-main-item">
+                            <a class="nav-main-link nav-btn" data-view="config" href="javascript:void(0)" onclick="App.navigate('config')">
+                                <i class="nav-main-link-icon fa-solid fa-sliders"></i>
+                                <span class="nav-main-link-name">Configurações & Backup</span>
+                            </a>
+                        </li>
+
+                        <li class="nav-main-heading">Sessão</li>
+                        <li class="nav-main-item">
+                            <a class="nav-main-link text-danger nav-btn nav-btn-logout" id="btnNavLogout" href="javascript:void(0)" onclick="App.logout()" title="Sair do Sistema">
+                                <i class="nav-main-link-icon fa-solid fa-right-from-bracket text-danger"></i>
+                                <span class="nav-main-link-name text-danger">Sair do Sistema</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
 
         <!-- ===================================================================
-             VIEW 4: DE-PARA & MAPEAMENTO DE CÓDIGOS DE BARRA (EAN)
+             TOP HEADER (ONEUI)
              =================================================================== -->
-        <section id="view-eans" class="view-section">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-                <div>
-                    <h2>Mapeamento de Códigos de Barras (EAN ⇄ SKU)</h2>
-                    <p style="color: var(--text-secondary); font-size: 0.875rem;">Associe códigos de barras de fábrica
-                        aos códigos de produtos (SKU) do SIGE Cloud.</p>
+        <header id="page-header">
+            <div class="content-header">
+                <!-- Left Section: Toggle & Status -->
+                <div class="d-flex align-items-center gap-2">
+                    <!-- Toggle Sidebar -->
+                    <button type="button" class="btn btn-sm btn-alt-secondary" data-toggle="layout" data-action="sidebar_toggle" title="Menu Lateral">
+                        <i class="fa fa-fw fa-bars"></i>
+                    </button>
+
+                    <!-- Network Status Chip -->
+                    <span id="networkStatusChip" class="badge rounded-pill bg-success-light text-success fs-xs fw-semibold px-2 py-1 d-flex align-items-center">
+                        <span class="status-dot"></span> Online
+                    </span>
                 </div>
-                <button class="btn btn-primary" onclick="App.modalNovoEan()">
-                    <i class="fa-solid fa-plus"></i> Novo Vínculo EAN
-                </button>
-            </div>
 
-            <div class="table-container">
-                <table class="wms-table">
-                    <thead>
-                        <tr>
-                            <th>Código SKU (SIGE)</th>
-                            <th>Código de Barras (EAN / Bip)</th>
-                            <th>Descrição do Produto</th>
-                            <th>Cadastrado em</th>
-                            <th style="text-align: right;">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="eansTableBody">
-                        <!-- Gerado dinamicamente -->
-                    </tbody>
-                </table>
-            </div>
-        </section>
+                <!-- Right Section: Tools, Theme & User Dropdown -->
+                <div class="d-flex align-items-center gap-2">
+                    <!-- Sound Toggle -->
+                    <button type="button" class="btn btn-sm btn-alt-secondary" id="btnToggleSound" onclick="App.toggleSound()" title="Ativar/Desativar Sons Operacionais">
+                        <i class="fa-solid fa-volume-high" id="iconSound"></i>
+                    </button>
 
+                    <!-- Fullscreen Toggle -->
+                    <button type="button" class="btn btn-sm btn-alt-secondary d-none d-sm-inline-block" onclick="App.toggleFullscreen()" title="Tela Cheia (F11)">
+                        <i class="fa-solid fa-expand" id="iconFullscreen"></i>
+                    </button>
 
-        <!-- ===================================================================
-             VIEW 5: CONFIGURAÇÕES & CREDENCIAIS SIGE CLOUD
-             =================================================================== -->
-        <section id="view-config" class="view-section">
-            <div class="modal-card" style="max-width: 800px; margin: 0 auto;">
-                <div class="modal-header">
-                    <h3><i class="fa-solid fa-sliders"></i> Configurações do Sistema & Integração SIGE Cloud</h3>
-                </div>
-                <div class="modal-body">
-                    <form id="formConfig" onsubmit="App.salvarConfiguracoes(event)">
-                        <div class="form-group" style="margin-bottom: 1rem;">
-                            <label for="cfgToken"><i class="fa-solid fa-key"></i> Token de Autorização SIGE
-                                Cloud</label>
-                            <input type="text" id="cfgToken" class="input-control font-mono" required>
-                        </div>
-
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                            <div class="form-group">
-                                <label for="cfgUser"><i class="fa-solid fa-envelope"></i> Usuário SIGE</label>
-                                <input type="text" id="cfgUser" class="input-control" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="cfgApp"><i class="fa-solid fa-cube"></i> Identificador APP</label>
-                                <input type="text" id="cfgApp" class="input-control" required>
-                            </div>
-                        </div>
-
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
-                            <div class="form-group">
-                                <label for="cfgOperadorPadrao"><i class="fa-solid fa-user"></i> Nome do Operador
-                                    Padrão</label>
-                                <input type="text" id="cfgOperadorPadrao" class="input-control" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="cfgModoCego"><i class="fa-solid fa-eye-slash"></i> Modo Conferência
-                                    Cega</label>
-                                <select id="cfgModoCego" class="select-control">
-                                    <option value="0">Desativado (Mostra quantidades esperadas)</option>
-                                    <option value="1">Ativado (Oculta quantidades até concluir)</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div style="display: flex; gap: 0.75rem; justify-content: space-between; align-items: center;">
-                            <button type="button" class="btn btn-secondary" onclick="App.testarConexaoSige()">
-                                <i class="fa-solid fa-plug"></i> Testar Conexão SIGE
-                            </button>
-                            <button type="submit" class="btn btn-success">
-                                <i class="fa-solid fa-floppy-disk"></i> Salvar Configurações
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Card de Manutenção, Backup e Diagnóstico -->
-            <div class="modal-card" style="max-width: 800px; margin: 1.5rem auto 0 auto;">
-                <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
-                    <h3><i class="fa-solid fa-database"></i> Manutenção & Backup do Banco de Dados</h3>
-                    <div style="display: flex; gap: 0.5rem;">
-                        <button type="button" class="btn btn-sm btn-secondary"
-                            onclick="window.open('api/health.php?check_sige=1', '_blank')"
-                            title="Ver JSON de Diagnóstico">
-                            <i class="fa-solid fa-heart-pulse"></i> Diagnóstico de Saúde
+                    <!-- Dark Mode Toggle Dropdown -->
+                    <div class="dropdown d-inline-block">
+                        <button type="button" class="btn btn-sm btn-alt-secondary" id="header-dark-mode-dropdown" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Modo Escuro / Claro">
+                            <i class="far fa-fw fa-moon" data-dark-mode-icon></i>
                         </button>
-                        <button type="button" class="btn btn-sm btn-primary" onclick="App.gerarBackupDb()">
-                            <i class="fa-solid fa-download"></i> Gerar Backup Agora
+                        <div class="dropdown-menu dropdown-menu-end fs-sm border-0 shadow" aria-labelledby="header-dark-mode-dropdown">
+                            <button type="button" class="dropdown-item d-flex align-items-center gap-2" data-toggle="layout" data-action="dark_mode_off" data-dark-mode="off">
+                                <i class="far fa-sun fa-fw opacity-50"></i>
+                                <span>Modo Claro</span>
+                            </button>
+                            <button type="button" class="dropdown-item d-flex align-items-center gap-2" data-toggle="layout" data-action="dark_mode_on" data-dark-mode="on">
+                                <i class="far fa-moon fa-fw opacity-50"></i>
+                                <span>Modo Escuro</span>
+                            </button>
+                            <button type="button" class="dropdown-item d-flex align-items-center gap-2" data-toggle="layout" data-action="dark_mode_system" data-dark-mode="system">
+                                <i class="fa fa-desktop fa-fw opacity-50"></i>
+                                <span>Padrão do Sistema</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Themes Dropdown -->
+                    <div class="dropdown d-none d-md-inline-block">
+                        <button type="button" class="btn btn-sm btn-alt-secondary" id="header-themes-dropdown" data-bs-auto-close="outside" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Cores do Tema">
+                            <i class="fa fa-fw fa-brush"></i>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end fs-sm border-0 shadow" aria-labelledby="header-themes-dropdown">
+                            <button class="dropdown-item d-flex align-items-center justify-content-between fw-medium" data-toggle="theme" data-theme="default">
+                                <span>Padrão (Blue)</span>
+                                <i class="fa fa-circle text-primary"></i>
+                            </button>
+                            <button class="dropdown-item d-flex align-items-center justify-content-between fw-medium" data-toggle="theme" data-theme="assets/css/themes/amethyst.min.css">
+                                <span>Amethyst</span>
+                                <i class="fa fa-circle text-amethyst"></i>
+                            </button>
+                            <button class="dropdown-item d-flex align-items-center justify-content-between fw-medium" data-toggle="theme" data-theme="assets/css/themes/city.min.css">
+                                <span>City</span>
+                                <i class="fa fa-circle text-city"></i>
+                            </button>
+                            <button class="dropdown-item d-flex align-items-center justify-content-between fw-medium" data-toggle="theme" data-theme="assets/css/themes/flat.min.css">
+                                <span>Flat</span>
+                                <i class="fa fa-circle text-flat"></i>
+                            </button>
+                            <button class="dropdown-item d-flex align-items-center justify-content-between fw-medium" data-toggle="theme" data-theme="assets/css/themes/modern.min.css">
+                                <span>Modern</span>
+                                <i class="fa fa-circle text-modern"></i>
+                            </button>
+                            <button class="dropdown-item d-flex align-items-center justify-content-between fw-medium" data-toggle="theme" data-theme="assets/css/themes/smooth.min.css">
+                                <span>Smooth</span>
+                                <i class="fa fa-circle text-smooth"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- User Profile Dropdown -->
+                    <div class="dropdown d-inline-block">
+                        <button type="button" class="btn btn-sm btn-alt-secondary d-flex align-items-center gap-2" id="header-user-dropdown" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <div class="operator-avatar-mini" id="avatarMiniHeader">D</div>
+                            <span class="d-none d-sm-inline-block fw-semibold" id="lblOperadorHeader">David</span>
+                            <i class="fa fa-fw fa-angle-down opacity-50 ms-1"></i>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-md dropdown-menu-end p-0 border-0 shadow" aria-labelledby="header-user-dropdown">
+                            <div class="p-3 text-center bg-body-light border-bottom rounded-top">
+                                <div class="operator-avatar-mini mx-auto mb-2" id="avatarMiniDropdown" style="width: 44px; height: 44px; font-size: 1.1rem;">D</div>
+                                <p class="mb-0 fw-semibold" id="lblOperadorDropdownNome">David</p>
+                                <p class="mb-0 text-muted fs-xs" id="lblOperadorDropdownRole">Operador WMS</p>
+                            </div>
+                            <div class="p-2">
+                                <a class="dropdown-item d-flex align-items-center justify-content-between fs-sm" href="javascript:void(0)" onclick="App.navigate('pedidos')">
+                                    <span><i class="fa fa-fw fa-clipboard-list opacity-50 me-2"></i>Pedidos</span>
+                                </a>
+                                <a class="dropdown-item d-flex align-items-center justify-content-between fs-sm" href="javascript:void(0)" onclick="App.navigate('config')">
+                                    <span><i class="fa fa-fw fa-sliders opacity-50 me-2"></i>Ajustes</span>
+                                </a>
+                            </div>
+                            <div class="dropdown-divider m-0"></div>
+                            <div class="p-2">
+                                <a class="dropdown-item d-flex align-items-center justify-content-between text-danger fs-sm fw-medium" href="javascript:void(0)" onclick="App.logout()">
+                                    <span><i class="fa fa-fw fa-right-from-bracket opacity-50 me-2"></i>Sair do Sistema</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Botão Logout Direto -->
+                    <button class="btn btn-sm btn-alt-danger d-none d-md-inline-flex" id="btnLogoutHeader" onclick="App.logout()" title="Sair do Sistema">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- ===================================================================
+             MAIN CONTAINER (ONEUI CONTENT AREA)
+             =================================================================== -->
+        <main id="main-container">
+
+            <!-- ===============================================================
+                 VIEW 1: PEDIDOS & DASHBOARD (ONEUI)
+                 =============================================================== -->
+            <section id="view-pedidos" class="view-section active">
+                <!-- Hero Header -->
+                <div class="bg-body-light">
+                    <div class="content content-full">
+                        <div class="d-flex flex-column flex-sm-row justify-content-sm-between align-items-sm-center py-2">
+                            <div class="flex-grow-1">
+                                <h1 class="h3 fw-bold mb-1">Painel de Separação & Conferência</h1>
+                                <h2 class="fs-sm lh-base fw-medium text-muted mb-0">Visão geral dos pedidos sincronizados com SIGE Cloud</h2>
+                            </div>
+                            <div class="mt-3 mt-sm-0 ms-sm-3 d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-alt-primary" onclick="App.buscarPedidos()">
+                                    <i class="fa fa-rotate me-1"></i> Atualizar Pedidos
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Page Content -->
+                <div class="content">
+                    <!-- KPI Cards Row -->
+                    <div class="row items-push">
+                        <div class="col-6 col-md-3 col-xxl-3">
+                            <div class="block block-rounded d-flex flex-column h-100 mb-0">
+                                <div class="block-content block-content-full flex-grow-1 d-flex justify-content-between align-items-center">
+                                    <dl class="mb-0">
+                                        <dt class="fs-3 fw-bold" id="kpiTotalConferencias">0</dt>
+                                        <dd class="fs-sm fw-medium text-muted mb-0">Total Conferências</dd>
+                                    </dl>
+                                    <div class="item item-rounded-lg bg-primary-light">
+                                        <i class="fa-solid fa-truck-ramp-box fs-3 text-primary"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3 col-xxl-3">
+                            <div class="block block-rounded d-flex flex-column h-100 mb-0">
+                                <div class="block-content block-content-full flex-grow-1 d-flex justify-content-between align-items-center">
+                                    <dl class="mb-0">
+                                        <dt class="fs-3 fw-bold text-success" id="kpiConferidosHoje">0</dt>
+                                        <dd class="fs-sm fw-medium text-muted mb-0">Conferidos Hoje</dd>
+                                    </dl>
+                                    <div class="item item-rounded-lg bg-success-light">
+                                        <i class="fa-solid fa-circle-check fs-3 text-success"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3 col-xxl-3">
+                            <div class="block block-rounded d-flex flex-column h-100 mb-0">
+                                <div class="block-content block-content-full flex-grow-1 d-flex justify-content-between align-items-center">
+                                    <dl class="mb-0">
+                                        <dt class="fs-3 fw-bold text-warning" id="kpiEmSeparacao">0</dt>
+                                        <dd class="fs-sm fw-medium text-muted mb-0">Em Separação</dd>
+                                    </dl>
+                                    <div class="item item-rounded-lg bg-warning-light">
+                                        <i class="fa-solid fa-dolly fs-3 text-warning"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3 col-xxl-3">
+                            <div class="block block-rounded d-flex flex-column h-100 mb-0">
+                                <div class="block-content block-content-full flex-grow-1 d-flex justify-content-between align-items-center">
+                                    <dl class="mb-0">
+                                        <dt class="fs-3 fw-bold text-danger" id="kpiDivergencias">0</dt>
+                                        <dd class="fs-sm fw-medium text-muted mb-0">Divergências</dd>
+                                    </dl>
+                                    <div class="item item-rounded-lg bg-danger-light">
+                                        <i class="fa-solid fa-triangle-exclamation fs-3 text-danger"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3 col-xxl-3">
+                            <div class="block block-rounded d-flex flex-column h-100 mb-0">
+                                <div class="block-content block-content-full flex-grow-1 d-flex justify-content-between align-items-center">
+                                    <dl class="mb-0">
+                                        <dt class="fs-3 fw-bold text-amethyst" id="kpiTaxaAcuracia">100%</dt>
+                                        <dd class="fs-sm fw-medium text-muted mb-0">Acurácia Operacional</dd>
+                                    </dl>
+                                    <div class="item item-rounded-lg bg-amethyst-light">
+                                        <i class="fa-solid fa-bullseye fs-3 text-amethyst"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3 col-xxl-3">
+                            <div class="block block-rounded d-flex flex-column h-100 mb-0">
+                                <div class="block-content block-content-full flex-grow-1 d-flex justify-content-between align-items-center">
+                                    <dl class="mb-0">
+                                        <dt class="fs-3 fw-bold text-city" id="kpiTempoMedio">0 min</dt>
+                                        <dd class="fs-sm fw-medium text-muted mb-0">Tempo Médio</dd>
+                                    </dl>
+                                    <div class="item item-rounded-lg bg-city-light">
+                                        <i class="fa-solid fa-stopwatch fs-3 text-city"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3 col-xxl-3">
+                            <div class="block block-rounded d-flex flex-column h-100 mb-0">
+                                <div class="block-content block-content-full flex-grow-1 d-flex justify-content-between align-items-center">
+                                    <dl class="mb-0">
+                                        <dt class="fs-3 fw-bold text-modern" id="kpiItensBipadosHoje">0</dt>
+                                        <dd class="fs-sm fw-medium text-muted mb-0">Peças Bipadas Hoje</dd>
+                                    </dl>
+                                    <div class="item item-rounded-lg bg-modern-light">
+                                        <i class="fa-solid fa-barcode fs-3 text-modern"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3 col-xxl-3">
+                            <div class="block block-rounded d-flex flex-column h-100 mb-0">
+                                <div class="block-content block-content-full flex-grow-1 d-flex justify-content-between align-items-center">
+                                    <dl class="mb-0">
+                                        <dt class="fs-3 fw-bold text-smooth" id="kpiVolumesHoje">0</dt>
+                                        <dd class="fs-sm fw-medium text-muted mb-0">Volumes Hoje</dd>
+                                    </dl>
+                                    <div class="item item-rounded-lg bg-smooth-light">
+                                        <i class="fa-solid fa-boxes-stacked fs-3 text-smooth"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filter Block -->
+                    <div class="block block-rounded">
+                        <div class="block-header block-header-default">
+                            <h3 class="block-title">
+                                <i class="fa fa-filter me-1 text-muted"></i> Filtros de Busca SIGE Cloud
+                            </h3>
+                            <div class="block-options">
+                                <button type="button" class="btn-block-option" onclick="App.limparFiltros()" title="Limpar Filtros">
+                                    <i class="fa fa-rotate-left me-1"></i> Limpar
+                                </button>
+                            </div>
+                        </div>
+                        <div class="block-content">
+                            <!-- Quick Filter Chips -->
+                            <div class="quick-filter-chips">
+                                <span class="fs-sm fw-semibold text-muted me-1"><i class="fa-solid fa-bolt text-warning"></i> Status:</span>
+                                <button type="button" class="filter-chip active" data-status-filter="" onclick="App.aplicarFiltroRapido('')">Todos</button>
+                                <button type="button" class="filter-chip" data-status-filter="Pedido Aprovado" onclick="App.aplicarFiltroRapido('Pedido Aprovado')">
+                                    <i class="fa-solid fa-check text-success"></i> Aprovados
+                                </button>
+                                <button type="button" class="filter-chip" data-status-filter="Pedido Faturado" onclick="App.aplicarFiltroRapido('Pedido Faturado')">
+                                    <i class="fa-solid fa-truck text-primary"></i> Faturados
+                                </button>
+                                <button type="button" class="filter-chip" data-status-filter="Orçamento" onclick="App.aplicarFiltroRapido('Orçamento')">
+                                    <i class="fa-regular fa-file-lines text-muted"></i> Orçamentos
+                                </button>
+                            </div>
+
+                            <form id="formFiltroPedidos" onsubmit="App.buscarPedidos(event)" class="row g-3 mb-3">
+                                <div class="col-md-2">
+                                    <label class="form-label fs-sm" for="filtroCodigo"><i class="fa-solid fa-hashtag me-1"></i> Nº Pedido</label>
+                                    <input type="number" id="filtroCodigo" class="form-control form-control-sm" placeholder="Ex: 161">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fs-sm" for="filtroCliente"><i class="fa-solid fa-user me-1"></i> Cliente</label>
+                                    <input type="text" id="filtroCliente" class="form-control form-control-sm" placeholder="Nome ou CNPJ...">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label fs-sm" for="filtroStatus"><i class="fa-solid fa-filter me-1"></i> Status SIGE</label>
+                                    <select id="filtroStatus" class="form-select form-select-sm">
+                                        <option value="">Todos os Status</option>
+                                        <option value="Pedido Aprovado">Pedido Aprovado</option>
+                                        <option value="Pedido Faturado">Pedido Faturado</option>
+                                        <option value="Orçamento">Orçamento</option>
+                                        <option value="Pedido Cancelado">Pedido Cancelado</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label fs-sm" for="filtroDataInicial"><i class="fa-regular fa-calendar me-1"></i> De</label>
+                                    <input type="date" id="filtroDataInicial" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label fs-sm" for="filtroDataFinal"><i class="fa-regular fa-calendar me-1"></i> Até</label>
+                                    <input type="date" id="filtroDataFinal" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-1 d-flex align-items-end">
+                                    <button type="submit" class="btn btn-sm btn-primary w-100" id="btnBuscarPedidos">
+                                        <i class="fa-solid fa-magnifying-glass"></i>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Orders Table Block -->
+                    <div class="block block-rounded">
+                        <div class="block-header block-header-default">
+                            <h3 class="block-title">
+                                <i class="fa-solid fa-boxes-packing me-1 text-primary"></i> Pedidos Disponíveis para Separação
+                            </h3>
+                        </div>
+                        <div class="block-content block-content-full p-0">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-vcenter table-hover fs-sm mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Pedido</th>
+                                            <th>Data</th>
+                                            <th>Cliente</th>
+                                            <th>Status SIGE</th>
+                                            <th>Itens</th>
+                                            <th>Status WMS</th>
+                                            <th>Operador</th>
+                                            <th class="text-end">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pedidosTableBody">
+                                        <tr>
+                                            <td colspan="8" class="text-center py-5 text-muted">
+                                                <i class="fa-solid fa-spinner fa-spin fa-2x mb-3 text-primary"></i>
+                                                <p class="mb-0">Carregando pedidos do SIGE Cloud...</p>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===============================================================
+                 VIEW 2: SEPARAÇÃO & CONFERÊNCIA ATIVA (ONEUI)
+                 =============================================================== -->
+            <section id="view-conferencia" class="view-section">
+                <!-- Empty State -->
+                <div id="conferenciaVazia" class="content text-center py-6" style="display: none;">
+                    <div class="block block-rounded p-5 text-center mx-auto" style="max-width: 600px;">
+                        <i class="fa-solid fa-barcode fa-4x text-muted mb-3 opacity-50"></i>
+                        <h2 class="h4 fw-bold mb-2">Nenhuma Conferência em Andamento</h2>
+                        <p class="text-muted mb-4 fs-sm">Selecione um pedido na listagem para iniciar o processo de bipagem e separação.</p>
+                        <button class="btn btn-primary" onclick="App.navigate('pedidos')">
+                            <i class="fa-solid fa-arrow-left me-1"></i> Ir para Lista de Pedidos
                         </button>
                     </div>
                 </div>
-                <div class="modal-body">
-                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
-                        O backup online utiliza o comando atômico <code>VACUUM INTO</code> do SQLite para criar cópias
-                        snapshot consistentes do banco de dados em <code>data/backups/</code> sem interromper as
-                        operações em andamento.
-                    </p>
-                    <div id="listaBackupsContainer"
-                        style="background: rgba(15, 23, 42, 0.4); border-radius: var(--radius-md); padding: 1rem; border: 1px solid var(--border-color);">
-                        <div
-                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                            <strong style="font-size: 0.85rem; color: var(--text-primary);"><i
-                                    class="fa-solid fa-clock-rotate-left"></i> Histórico de Backups Locais</strong>
-                            <button type="button" class="btn btn-sm btn-link" onclick="App.carregarListaBackups()"
-                                style="font-size: 0.8rem;">
-                                <i class="fa-solid fa-rotate"></i> Atualizar
+
+                <!-- Active Conference Container -->
+                <div id="conferenciaAtivaContainer" class="content" style="display: none;">
+                    <div class="row items-push">
+                        <!-- Left Sidebar Column: Scanner, Manual Bip, Volumes -->
+                        <div class="col-12 col-xl-4">
+                            <!-- Scanner Block -->
+                            <div class="block block-rounded mb-3">
+                                <div class="block-header block-header-default py-2">
+                                    <h3 class="block-title fs-sm">
+                                        <i class="fa-solid fa-camera text-primary me-1"></i> Leitor Câmera
+                                    </h3>
+                                    <div class="block-options">
+                                        <button class="btn btn-sm btn-alt-secondary" id="btnTorch" onclick="App.toggleTorch()" title="Lanterna/Flash">
+                                            <i class="fa-solid fa-bolt"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-alt-secondary" id="btnSwitchCamera" onclick="App.switchCamera()" title="Alternar Câmera">
+                                            <i class="fa-solid fa-camera-rotate"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="block-content p-2">
+                                    <div class="camera-container mb-2">
+                                        <div id="reader"></div>
+                                        <div class="scan-laser" id="scanLaser" style="display: none;"></div>
+                                    </div>
+                                    <button class="btn btn-sm btn-success w-100" id="btnStartCam" onclick="App.startCamera()">
+                                        <i class="fa-solid fa-play me-1"></i> Ativar Câmera
+                                    </button>
+                                    <button class="btn btn-sm btn-danger w-100" id="btnStopCam" style="display: none;" onclick="App.stopCamera()">
+                                        <i class="fa-solid fa-stop me-1"></i> Parar Câmera
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Manual / Gun Scan Block -->
+                            <div class="block block-rounded mb-3">
+                                <div class="block-header block-header-default py-2">
+                                    <h3 class="block-title fs-sm">
+                                        <i class="fa-solid fa-barcode text-primary me-1"></i> Bipagem Manual / Pistola USB
+                                    </h3>
+                                </div>
+                                <div class="block-content p-3">
+                                    <div class="input-group mb-2">
+                                        <input type="text" id="inputManualBarcode" class="form-control font-mono" placeholder="Bipe aqui ou digite SKU/EAN..." autofocus>
+                                        <button class="btn btn-primary" onclick="App.biparManual()" title="Confirmar Bipagem">
+                                            <i class="fa-solid fa-check"></i>
+                                        </button>
+                                    </div>
+                                    <div id="scanStatusBanner" class="alert alert-success fs-xs py-2 px-3 mb-2 text-center" style="display: none;"></div>
+                                    <p class="fs-xs text-muted mb-0">
+                                        <i class="fa-solid fa-circle-info text-info me-1"></i> Leitores USB/Bluetooth são detectados automaticamente.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Volumes Block -->
+                            <div class="block block-rounded mb-3">
+                                <div class="block-header block-header-default py-2">
+                                    <h3 class="block-title fs-sm">
+                                        <i class="fa-solid fa-box text-primary me-1"></i> Volumes Embalados (<span id="lblTotalVolumes">0</span>)
+                                    </h3>
+                                    <div class="block-options">
+                                        <button class="btn btn-sm btn-alt-primary" onclick="App.modalNovoVolume()">
+                                            <i class="fa-solid fa-plus me-1"></i> Novo Volume
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="block-content p-3" id="listaVolumesContainer" style="max-height: 220px; overflow-y: auto;">
+                                    <span class="text-muted fs-xs text-center d-block py-2">Nenhum volume embalado ainda.</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Main Column: Order Hero & Items List -->
+                        <div class="col-12 col-xl-8">
+                            <!-- Hero Order Card Block -->
+                            <div class="block block-rounded mb-3">
+                                <div class="block-header block-header-default">
+                                    <div>
+                                        <h3 class="block-title d-flex align-items-center gap-2">
+                                            <span>Pedido #<span id="lblNumeroPedido">---</span></span>
+                                            <span class="badge badge-progress fs-xs" id="badgeStatusConferencia">Em Separação</span>
+                                        </h3>
+                                        <span class="text-muted fs-xs d-block mt-1">
+                                            <i class="fa-solid fa-user me-1"></i> <span id="lblClientePedido">---</span>
+                                        </span>
+                                    </div>
+                                    <div class="block-options d-flex gap-1 flex-wrap">
+                                        <button class="btn btn-sm btn-alt-secondary" onclick="App.imprimirRomaneio()" title="Imprimir Romaneio">
+                                            <i class="fa-solid fa-print me-1"></i> Romaneio
+                                        </button>
+                                        <button class="btn btn-sm btn-alt-secondary" onclick="App.reiniciarConferencia()" title="Zerar contagem">
+                                            <i class="fa-solid fa-rotate-left me-1"></i> Zerar
+                                        </button>
+                                        <button class="btn btn-sm btn-alt-danger" id="btnCancelarConferencia" onclick="App.abrirModalCancelarConferencia()" title="Cancelar Separação">
+                                            <i class="fa-solid fa-ban me-1"></i> Cancelar
+                                        </button>
+                                        <button class="btn btn-sm btn-success" id="btnFinalizarConferencia" onclick="App.finalizarConferencia()">
+                                            <i class="fa-solid fa-check-double me-1"></i> Finalizar Pedido
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="block-content p-3 border-top">
+                                    <div class="d-flex justify-content-between align-items-center mb-1 fs-sm">
+                                        <span class="fw-semibold">Progresso: <strong id="lblQtdConferidaTotal" class="text-primary">0</strong> de <span id="lblQtdEsperadaTotal">0</span> itens</span>
+                                        <span id="lblPorcentagemProgresso" class="fw-bold text-success">0%</span>
+                                    </div>
+                                    <div class="picking-progress-bar">
+                                        <div class="picking-progress-bar-fill" id="progressBarFill" style="width: 0%;"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Items List -->
+                            <div class="items-card-list" id="itensPickingList">
+                                <!-- Gerado via JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===============================================================
+                 VIEW 3: HISTÓRICO & AUDITORIA DE CONFERÊNCIAS (ONEUI)
+                 =============================================================== -->
+            <section id="view-historico" class="view-section">
+                <div class="bg-body-light">
+                    <div class="content content-full">
+                        <div class="d-flex flex-column flex-sm-row justify-content-sm-between align-items-sm-center py-2">
+                            <div>
+                                <h1 class="h3 fw-bold mb-1">Histórico de Conferências</h1>
+                                <h2 class="fs-sm lh-base fw-medium text-muted mb-0">Auditoria completa de separações realizadas, divergências e cancelamentos</h2>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="content">
+                    <!-- Filter Block -->
+                    <div class="block block-rounded mb-3">
+                        <div class="block-content p-3">
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-6">
+                                    <label class="form-label fs-sm" for="filtroHistoricoBusca"><i class="fa-solid fa-magnifying-glass me-1"></i> Buscar no Histórico</label>
+                                    <input type="text" id="filtroHistoricoBusca" class="form-control form-control-sm" placeholder="Nº Pedido, Cliente ou Operador..." oninput="App.carregarHistorico()">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fs-sm" for="filtroHistoricoStatus"><i class="fa-solid fa-filter me-1"></i> Status</label>
+                                    <select id="filtroHistoricoStatus" class="form-select form-select-sm" onchange="App.carregarHistorico()">
+                                        <option value="">Todos</option>
+                                        <option value="conferido">100% Conferido</option>
+                                        <option value="divergencia">Com Divergência</option>
+                                        <option value="em_separacao">Em Separação</option>
+                                        <option value="cancelado">Cancelado</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <button class="btn btn-sm btn-alt-primary w-100" onclick="App.carregarHistorico()">
+                                        <i class="fa-solid fa-rotate me-1"></i> Atualizar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- History Table Block -->
+                    <div class="block block-rounded">
+                        <div class="block-content block-content-full p-0">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-vcenter table-hover fs-sm mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Nº Pedido</th>
+                                            <th>Cliente</th>
+                                            <th>Operador</th>
+                                            <th>Status</th>
+                                            <th>Unidades</th>
+                                            <th>Volumes</th>
+                                            <th>Início</th>
+                                            <th>Fim</th>
+                                            <th class="text-end">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="historicoTableBody">
+                                        <!-- Gerado via JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===============================================================
+                 VIEW 4: DE-PARA EAN ⇄ SKU (ONEUI)
+                 =============================================================== -->
+            <section id="view-eans" class="view-section">
+                <div class="bg-body-light">
+                    <div class="content content-full">
+                        <div class="d-flex flex-column flex-sm-row justify-content-sm-between align-items-sm-center py-2">
+                            <div>
+                                <h1 class="h3 fw-bold mb-1">Mapeamento de Códigos de Barras (EAN ⇄ SKU)</h1>
+                                <h2 class="fs-sm lh-base fw-medium text-muted mb-0">Associe códigos de fábrica de produtos aos SKUs do SIGE Cloud</h2>
+                            </div>
+                            <div class="mt-3 mt-sm-0 ms-sm-3">
+                                <button class="btn btn-sm btn-primary" onclick="App.modalNovoEan()">
+                                    <i class="fa-solid fa-plus me-1"></i> Novo Vínculo EAN
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="content">
+                    <div class="block block-rounded">
+                        <div class="block-content block-content-full p-0">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-vcenter table-hover fs-sm mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Código SKU (SIGE)</th>
+                                            <th>Código de Barras (EAN / Bip)</th>
+                                            <th>Descrição do Produto</th>
+                                            <th>Cadastrado em</th>
+                                            <th class="text-end">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="eansTableBody">
+                                        <!-- Gerado via JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===============================================================
+                 VIEW 5: CONFIGURAÇÕES & BACKUP (ONEUI)
+                 =============================================================== -->
+            <section id="view-config" class="view-section">
+                <div class="bg-body-light">
+                    <div class="content content-full">
+                        <div class="d-flex flex-column flex-sm-row justify-content-sm-between align-items-sm-center py-2">
+                            <div>
+                                <h1 class="h3 fw-bold mb-1">Configurações do Sistema</h1>
+                                <h2 class="fs-sm lh-base fw-medium text-muted mb-0">Parâmetros de integração SIGE Cloud, modo cego e manutenção do banco</h2>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="content">
+                    <!-- Config SIGE Cloud Form Block -->
+                    <div class="block block-rounded mb-4 mx-auto" style="max-width: 850px;">
+                        <div class="block-header block-header-default">
+                            <h3 class="block-title">
+                                <i class="fa-solid fa-sliders text-primary me-1"></i> Integração & Credenciais SIGE Cloud
+                            </h3>
+                        </div>
+                        <div class="block-content p-4">
+                            <form id="formConfig" onsubmit="App.salvarConfiguracoes(event)">
+                                <div class="mb-3">
+                                    <label class="form-label fs-sm" for="cfgToken"><i class="fa-solid fa-key me-1"></i> Token de Autorização SIGE Cloud</label>
+                                    <input type="text" id="cfgToken" class="form-control font-mono" required>
+                                </div>
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fs-sm" for="cfgUser"><i class="fa-solid fa-envelope me-1"></i> Usuário SIGE</label>
+                                        <input type="text" id="cfgUser" class="form-control" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fs-sm" for="cfgApp"><i class="fa-solid fa-cube me-1"></i> Identificador APP</label>
+                                        <input type="text" id="cfgApp" class="form-control" required>
+                                    </div>
+                                </div>
+                                <div class="row g-3 mb-4">
+                                    <div class="col-md-6">
+                                        <label class="form-label fs-sm" for="cfgOperadorPadrao"><i class="fa-solid fa-user me-1"></i> Nome do Operador Padrão</label>
+                                        <input type="text" id="cfgOperadorPadrao" class="form-control" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fs-sm" for="cfgModoCego"><i class="fa-solid fa-eye-slash me-1"></i> Modo Conferência Cega</label>
+                                        <select id="cfgModoCego" class="form-select">
+                                            <option value="0">Desativado (Mostra quantidades esperadas)</option>
+                                            <option value="1">Ativado (Oculta quantidades até concluir)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <button type="button" class="btn btn-sm btn-alt-secondary" onclick="App.testarConexaoSige()">
+                                        <i class="fa-solid fa-plug me-1"></i> Testar Conexão SIGE
+                                    </button>
+                                    <button type="submit" class="btn btn-sm btn-success">
+                                        <i class="fa-solid fa-floppy-disk me-1"></i> Salvar Configurações
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Backup and Maintenance Block -->
+                    <div class="block block-rounded mb-4 mx-auto" style="max-width: 850px;">
+                        <div class="block-header block-header-default">
+                            <h3 class="block-title">
+                                <i class="fa-solid fa-database text-primary me-1"></i> Manutenção & Backup do Banco de Dados
+                            </h3>
+                            <div class="block-options d-flex gap-1">
+                                <button type="button" class="btn btn-sm btn-alt-secondary" onclick="window.open('api/health.php?check_sige=1', '_blank')">
+                                    <i class="fa-solid fa-heart-pulse me-1"></i> Diagnóstico de Saúde
+                                </button>
+                                <button type="button" class="btn btn-sm btn-primary" onclick="App.gerarBackupDb()">
+                                    <i class="fa-solid fa-download me-1"></i> Gerar Backup Agora
+                                </button>
+                            </div>
+                        </div>
+                        <div class="block-content p-4">
+                            <p class="text-muted fs-sm mb-3">
+                                O backup online utiliza o comando atômico <code>VACUUM INTO</code> do SQLite para criar snapshots consistentes do banco de dados em <code>data/backups/</code> sem interromper as operações em andamento.
+                            </p>
+                            <div id="listaBackupsContainer" class="p-3 bg-body-light rounded border">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <strong class="fs-sm"><i class="fa-solid fa-clock-rotate-left me-1"></i> Histórico de Backups Locais</strong>
+                                    <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="App.carregarListaBackups()">
+                                        <i class="fa-solid fa-rotate me-1"></i> Atualizar
+                                    </button>
+                                </div>
+                                <div id="listaBackupsBody" class="fs-sm text-muted">
+                                    Clique em "Atualizar" para carregar os backups.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Session Logout Block -->
+                    <div class="block block-rounded mb-4 mx-auto" style="max-width: 850px;">
+                        <div class="block-header block-header-default">
+                            <h3 class="block-title">
+                                <i class="fa-solid fa-user-lock text-danger me-1"></i> Sessão de Acesso
+                            </h3>
+                        </div>
+                        <div class="block-content p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+                            <div>
+                                <p class="fw-semibold mb-1">Encerrar Sessão Atual</p>
+                                <p class="text-muted fs-sm mb-0">Desconecta o operador e retorna à tela de login.</p>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-alt-danger" onclick="App.logout()">
+                                <i class="fa-solid fa-right-from-bracket me-1"></i> Sair do Sistema
                             </button>
                         </div>
-                        <div id="listaBackupsBody" style="font-size: 0.85rem; color: var(--text-muted);">
-                            Clique em "Atualizar" para carregar os backups.
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===============================================================
+                 VIEW 6: GESTÃO DE USUÁRIOS & EQUIPE (ONEUI)
+                 =============================================================== -->
+            <section id="view-usuarios" class="view-section">
+                <div class="bg-body-light">
+                    <div class="content content-full">
+                        <div class="d-flex flex-column flex-sm-row justify-content-sm-between align-items-sm-center py-2">
+                            <div>
+                                <h1 class="h3 fw-bold mb-1">Gestão de Usuários & Equipe</h1>
+                                <h2 class="fs-sm lh-base fw-medium text-muted mb-0">Controle de operadores, supervisores e permissões de acesso</h2>
+                            </div>
+                            <div class="mt-3 mt-sm-0 ms-sm-3">
+                                <button class="btn btn-sm btn-primary" onclick="App.modalNovoUsuario()">
+                                    <i class="fa-solid fa-user-plus me-1"></i> Novo Usuário
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Card de Sessão e Logout do Operador -->
-            <div class="modal-card" style="max-width: 800px; margin: 1.5rem auto 0 auto;">
-                <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
-                    <h3><i class="fa-solid fa-user-lock"></i> Sessão de Acesso</h3>
-                </div>
-                <div class="modal-body" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-                    <div>
-                        <p style="color: var(--text-primary); font-weight: 600; margin-bottom: 0.25rem;">Encerrar Sessão Atual</p>
-                        <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">Desconecta o operador e retorna à tela de identificação/login.</p>
+                <div class="content">
+                    <!-- User KPI Row -->
+                    <div class="row items-push">
+                        <div class="col-6 col-md-3">
+                            <div class="block block-rounded d-flex flex-column h-100 mb-0">
+                                <div class="block-content block-content-full flex-grow-1 d-flex justify-content-between align-items-center">
+                                    <dl class="mb-0">
+                                        <dt class="fs-3 fw-bold" id="kpiTotalUsuarios">0</dt>
+                                        <dd class="fs-sm fw-medium text-muted mb-0">Total de Usuários</dd>
+                                    </dl>
+                                    <div class="item item-rounded-lg bg-primary-light">
+                                        <i class="fa-solid fa-users fs-3 text-primary"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="block block-rounded d-flex flex-column h-100 mb-0">
+                                <div class="block-content block-content-full flex-grow-1 d-flex justify-content-between align-items-center">
+                                    <dl class="mb-0">
+                                        <dt class="fs-3 fw-bold text-success" id="kpiUsuariosAtivos">0</dt>
+                                        <dd class="fs-sm fw-medium text-muted mb-0">Usuários Ativos</dd>
+                                    </dl>
+                                    <div class="item item-rounded-lg bg-success-light">
+                                        <i class="fa-solid fa-user-check fs-3 text-success"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="block block-rounded d-flex flex-column h-100 mb-0">
+                                <div class="block-content block-content-full flex-grow-1 d-flex justify-content-between align-items-center">
+                                    <dl class="mb-0">
+                                        <dt class="fs-3 fw-bold text-warning" id="kpiUsuariosOperadores">0</dt>
+                                        <dd class="fs-sm fw-medium text-muted mb-0">Conferentes / Operadores</dd>
+                                    </dl>
+                                    <div class="item item-rounded-lg bg-warning-light">
+                                        <i class="fa-solid fa-dolly fs-3 text-warning"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="block block-rounded d-flex flex-column h-100 mb-0">
+                                <div class="block-content block-content-full flex-grow-1 d-flex justify-content-between align-items-center">
+                                    <dl class="mb-0">
+                                        <dt class="fs-3 fw-bold text-amethyst" id="kpiUsuariosAdmins">0</dt>
+                                        <dd class="fs-sm fw-medium text-muted mb-0">Administradores</dd>
+                                    </dl>
+                                    <div class="item item-rounded-lg bg-amethyst-light">
+                                        <i class="fa-solid fa-user-shield fs-3 text-amethyst"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <button type="button" class="btn btn-danger" onclick="App.logout()">
-                        <i class="fa-solid fa-right-from-bracket"></i> Sair do Sistema
-                    </button>
-                </div>
-            </div>
-        </section>
 
+                    <!-- User Filter Block -->
+                    <div class="block block-rounded mb-3">
+                        <div class="block-content p-3">
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-5">
+                                    <label class="form-label fs-sm" for="filtroUsuariosBusca"><i class="fa-solid fa-magnifying-glass me-1"></i> Buscar Usuário</label>
+                                    <input type="text" id="filtroUsuariosBusca" class="form-control form-control-sm" placeholder="Nome ou e-mail..." oninput="App.carregarUsuarios()">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fs-sm" for="filtroUsuariosFuncao"><i class="fa-solid fa-id-badge me-1"></i> Cargo / Função</label>
+                                    <select id="filtroUsuariosFuncao" class="form-select form-select-sm" onchange="App.carregarUsuarios()">
+                                        <option value="">Todas as Funções</option>
+                                        <option value="admin">Administrador</option>
+                                        <option value="supervisor">Supervisor</option>
+                                        <option value="conferente">Conferente</option>
+                                        <option value="operador">Operador</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label fs-sm" for="filtroUsuariosStatus"><i class="fa-solid fa-toggle-on me-1"></i> Status</label>
+                                    <select id="filtroUsuariosStatus" class="form-select form-select-sm" onchange="App.carregarUsuarios()">
+                                        <option value="">Todos</option>
+                                        <option value="ativo">Ativo</option>
+                                        <option value="inativo">Inativo</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <button class="btn btn-sm btn-alt-secondary w-100" onclick="App.limparFiltrosUsuarios()" title="Limpar Filtros">
+                                        <i class="fa-solid fa-rotate-left me-1"></i> Limpar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- User Table Block -->
+                    <div class="block block-rounded">
+                        <div class="block-content block-content-full p-0">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-vcenter table-hover fs-sm mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Usuário</th>
+                                            <th>Função / Cargo</th>
+                                            <th>Permissões de Acesso</th>
+                                            <th>Status</th>
+                                            <th>PIN</th>
+                                            <th>Cadastrado em</th>
+                                            <th class="text-end">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="usuariosTableBody">
+                                        <!-- Gerado via JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
 
         <!-- ===================================================================
-             VIEW 6: GERENCIAMENTO DE USUÁRIOS (CRUD)
+             PAGE FOOTER (ONEUI)
              =================================================================== -->
-        <section id="view-usuarios" class="view-section">
-            <!-- KPI Cards de Usuários -->
-            <div class="kpi-grid">
-                <div class="kpi-card">
-                    <div class="kpi-icon blue">
-                        <i class="fa-solid fa-users"></i>
+        <footer id="page-footer" class="bg-body-light">
+            <div class="content py-3">
+                <div class="row fs-sm">
+                    <div class="col-sm-6 order-sm-2 py-1 text-center text-sm-end">
+                        <span class="badge bg-primary-light text-primary">WMS Prime v2.5</span> • Design System OneUI
                     </div>
-                    <div class="kpi-info">
-                        <h3>Total de Usuários</h3>
-                        <div class="kpi-value" id="kpiTotalUsuarios">0</div>
-                    </div>
-                </div>
-
-                <div class="kpi-card">
-                    <div class="kpi-icon green">
-                        <i class="fa-solid fa-user-check"></i>
-                    </div>
-                    <div class="kpi-info">
-                        <h3>Usuários Ativos</h3>
-                        <div class="kpi-value" id="kpiUsuariosAtivos">0</div>
-                    </div>
-                </div>
-
-                <div class="kpi-card">
-                    <div class="kpi-icon yellow">
-                        <i class="fa-solid fa-dolly"></i>
-                    </div>
-                    <div class="kpi-info">
-                        <h3>Operadores / Conferentes</h3>
-                        <div class="kpi-value" id="kpiUsuariosOperadores">0</div>
-                    </div>
-                </div>
-
-                <div class="kpi-card">
-                    <div class="kpi-icon purple">
-                        <i class="fa-solid fa-user-shield"></i>
-                    </div>
-                    <div class="kpi-info">
-                        <h3>Administradores</h3>
-                        <div class="kpi-value" id="kpiUsuariosAdmins">0</div>
+                    <div class="col-sm-6 order-sm-1 py-1 text-center text-sm-start">
+                        <span class="fw-semibold">WMS Prime</span> &copy; <span id="lblCopyrightYear">2026</span> - Conferência & Separação Logística
                     </div>
                 </div>
             </div>
-
-            <!-- Barra de Ações e Filtros de Usuários -->
-            <div class="filter-card">
-                <div class="filter-grid" style="grid-template-columns: 1fr 180px 160px auto auto;">
-                    <div class="form-group">
-                        <label for="filtroUsuariosBusca"><i class="fa-solid fa-magnifying-glass"></i> Buscar
-                            Usuário</label>
-                        <input type="text" id="filtroUsuariosBusca" class="input-control"
-                            placeholder="Nome ou e-mail..." oninput="App.carregarUsuarios()">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="filtroUsuariosFuncao"><i class="fa-solid fa-id-badge"></i> Função / Cargo</label>
-                        <select id="filtroUsuariosFuncao" class="select-control" onchange="App.carregarUsuarios()">
-                            <option value="">Todas as Funções</option>
-                            <option value="admin">Administrador</option>
-                            <option value="supervisor">Supervisor</option>
-                            <option value="conferente">Conferente</option>
-                            <option value="operador">Operador</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="filtroUsuariosStatus"><i class="fa-solid fa-toggle-on"></i> Status</label>
-                        <select id="filtroUsuariosStatus" class="select-control" onchange="App.carregarUsuarios()">
-                            <option value="">Todos</option>
-                            <option value="ativo">Ativo</option>
-                            <option value="inativo">Inativo</option>
-                        </select>
-                    </div>
-
-                    <button class="btn btn-secondary" onclick="App.limparFiltrosUsuarios()" title="Limpar Filtros">
-                        <i class="fa-solid fa-rotate-left"></i>
-                    </button>
-
-                    <button class="btn btn-primary" onclick="App.modalNovoUsuario()">
-                        <i class="fa-solid fa-user-plus"></i> Novo Usuário
-                    </button>
-                </div>
-            </div>
-
-            <!-- Tabela de Usuários -->
-            <div class="table-container">
-                <table class="wms-table">
-                    <thead>
-                        <tr>
-                            <th>Usuário</th>
-                            <th>Função / Cargo</th>
-                            <th>Permissões de Acesso</th>
-                            <th>Status</th>
-                            <th>PIN</th>
-                            <th>Cadastrado em</th>
-                            <th style="text-align: right;">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="usuariosTableBody">
-                        <tr>
-                            <td colspan="7" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
-                                <i class="fa-solid fa-spinner fa-spin fa-2x"></i><br><br>Carregando usuários...
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-    </main>
+        </footer>
+    </div>
 
     <!-- ===================================================================
-         MODAIS
+         MODAIS DO SISTEMA (ONEUI DESIGN STYLE)
          =================================================================== -->
 
     <!-- Modal Adicionar Volume -->
     <div class="modal-overlay" id="modalVolume">
         <div class="modal-card">
             <div class="modal-header">
-                <h3><i class="fa-solid fa-box"></i> Adicionar Volume / Embalagem</h3>
-                <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()"><i
-                        class="fa-solid fa-xmark"></i></button>
+                <h3><i class="fa-solid fa-box text-primary"></i> Adicionar Volume / Embalagem</h3>
+                <button class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="modal-body">
                 <form id="formVolume" onsubmit="App.salvarVolume(event)">
-                    <div class="form-group" style="margin-bottom: 1rem;">
-                        <label for="volPeso"><i class="fa-solid fa-weight-hanging"></i> Peso Total da Caixa (KG)</label>
-                        <input type="number" step="0.01" id="volPeso" class="input-control" placeholder="Ex: 2.45"
-                            required autofocus>
+                    <div class="mb-3">
+                        <label class="form-label fs-sm" for="volPeso"><i class="fa-solid fa-weight-hanging me-1"></i> Peso Total da Caixa (KG)</label>
+                        <input type="number" step="0.01" id="volPeso" class="form-control" placeholder="Ex: 2.45" required autofocus>
                     </div>
-                    <div class="form-group" style="margin-bottom: 1.5rem;">
-                        <label for="volDimensoes"><i class="fa-solid fa-ruler-combined"></i> Dimensões (C x L x A cm -
-                            Opcional)</label>
-                        <input type="text" id="volDimensoes" class="input-control" placeholder="Ex: 30x20x15">
+                    <div class="mb-3">
+                        <label class="form-label fs-sm" for="volDimensoes"><i class="fa-solid fa-ruler-combined me-1"></i> Dimensões (C x L x A cm - Opcional)</label>
+                        <input type="text" id="volDimensoes" class="form-control" placeholder="Ex: 30x20x15">
                     </div>
-                    <div class="modal-footer" style="padding: 0; background: none; border: none;">
-                        <button type="button" class="btn btn-secondary" onclick="App.fecharModais()">Cancelar</button>
-                        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Gerar Volume &
-                            Etiqueta</button>
+                    <div class="modal-footer p-0 pt-3 bg-transparent border-0">
+                        <button type="button" class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()">Cancelar</button>
+                        <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-check me-1"></i> Gerar Volume & Etiqueta</button>
                     </div>
                 </form>
             </div>
@@ -769,115 +1038,91 @@
     <div class="modal-overlay" id="modalEan">
         <div class="modal-card">
             <div class="modal-header">
-                <h3><i class="fa-solid fa-tag"></i> Vincular Código de Barras (EAN) ao SKU</h3>
-                <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()"><i
-                        class="fa-solid fa-xmark"></i></button>
+                <h3><i class="fa-solid fa-tag text-primary"></i> Vincular Código de Barras (EAN) ao SKU</h3>
+                <button class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="modal-body">
                 <form id="formEan" onsubmit="App.salvarNovoEan(event)">
-                    <div class="form-group" style="margin-bottom: 1rem;">
-                        <label for="eanSku"><i class="fa-solid fa-hashtag"></i> Código do Produto no SIGE (SKU)</label>
-                        <input type="text" id="eanSku" class="input-control font-mono" placeholder="Ex: RP00001"
-                            required autofocus>
+                    <div class="mb-3">
+                        <label class="form-label fs-sm" for="eanSku"><i class="fa-solid fa-hashtag me-1"></i> Código do Produto no SIGE (SKU)</label>
+                        <input type="text" id="eanSku" class="form-control font-mono" placeholder="Ex: RP00001" required autofocus>
                     </div>
-                    <div class="form-group" style="margin-bottom: 1rem;">
-                        <label for="eanCodigoBarra"><i class="fa-solid fa-barcode"></i> Código de Barras /
-                            EAN-13</label>
-                        <input type="text" id="eanCodigoBarra" class="input-control font-mono"
-                            placeholder="Ex: 7898561230012" required>
+                    <div class="mb-3">
+                        <label class="form-label fs-sm" for="eanCodigoBarra"><i class="fa-solid fa-barcode me-1"></i> Código de Barras / EAN-13</label>
+                        <input type="text" id="eanCodigoBarra" class="form-control font-mono" placeholder="Ex: 7898561230012" required>
                     </div>
-                    <div class="form-group" style="margin-bottom: 1.5rem;">
-                        <label for="eanDescricao"><i class="fa-solid fa-font"></i> Descrição do Produto
-                            (Opcional)</label>
-                        <input type="text" id="eanDescricao" class="input-control" placeholder="Nome do produto...">
+                    <div class="mb-3">
+                        <label class="form-label fs-sm" for="eanDescricao"><i class="fa-solid fa-font me-1"></i> Descrição do Produto (Opcional)</label>
+                        <input type="text" id="eanDescricao" class="form-control" placeholder="Nome do produto...">
                     </div>
-                    <div class="modal-footer" style="padding: 0; background: none; border: none;">
-                        <button type="button" class="btn btn-secondary" onclick="App.fecharModais()">Cancelar</button>
-                        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Salvar
-                            Vínculo</button>
+                    <div class="modal-footer p-0 pt-3 bg-transparent border-0">
+                        <button type="button" class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()">Cancelar</button>
+                        <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-save me-1"></i> Salvar Vínculo</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 
-
     <!-- Modal Novo / Editar Usuário -->
     <div class="modal-overlay" id="modalUsuario">
         <div class="modal-card" style="max-width: 540px;">
             <div class="modal-header">
-                <h3 id="modalUsuarioTitulo"><i class="fa-solid fa-user-plus"></i> Novo Usuário</h3>
-                <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()"><i
-                        class="fa-solid fa-xmark"></i></button>
+                <h3 id="modalUsuarioTitulo"><i class="fa-solid fa-user-plus text-primary"></i> Novo Usuário</h3>
+                <button class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="modal-body">
                 <form id="formUsuario" onsubmit="App.salvarUsuario(event)">
                     <input type="hidden" id="usuarioId" value="">
-
-                    <div class="form-group" style="margin-bottom: 1rem;">
-                        <label for="usuarioNome"><i class="fa-solid fa-user"></i> Nome Completo</label>
-                        <input type="text" id="usuarioNome" class="input-control" placeholder="Ex: David Silva" required
-                            autofocus>
+                    <div class="mb-3">
+                        <label class="form-label fs-sm" for="usuarioNome"><i class="fa-solid fa-user me-1"></i> Nome Completo</label>
+                        <input type="text" id="usuarioNome" class="form-control" placeholder="Ex: David Silva" required autofocus>
                     </div>
-
-                    <div class="form-group" style="margin-bottom: 1rem;">
-                        <label for="usuarioEmail"><i class="fa-solid fa-envelope"></i> E-mail de Acesso</label>
-                        <input type="email" id="usuarioEmail" class="input-control"
-                            placeholder="exemplo@primepro.com.br" required>
+                    <div class="mb-3">
+                        <label class="form-label fs-sm" for="usuarioEmail"><i class="fa-solid fa-envelope me-1"></i> E-mail de Acesso</label>
+                        <input type="email" id="usuarioEmail" class="form-control" placeholder="exemplo@primepro.com.br" required>
                     </div>
-
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                        <div class="form-group">
-                            <label for="usuarioFuncao"><i class="fa-solid fa-id-badge"></i> Função / Cargo</label>
-                            <select id="usuarioFuncao" class="select-control" required>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fs-sm" for="usuarioFuncao"><i class="fa-solid fa-id-badge me-1"></i> Função / Cargo</label>
+                            <select id="usuarioFuncao" class="form-select" required>
                                 <option value="operador">Operador</option>
                                 <option value="conferente">Conferente</option>
                                 <option value="supervisor">Supervisor</option>
                                 <option value="admin">Administrador</option>
                             </select>
                         </div>
-                        <div class="form-group">
-                            <label for="usuarioStatus"><i class="fa-solid fa-toggle-on"></i> Status</label>
-                            <select id="usuarioStatus" class="select-control" required>
+                        <div class="col-md-6">
+                            <label class="form-label fs-sm" for="usuarioStatus"><i class="fa-solid fa-toggle-on me-1"></i> Status</label>
+                            <select id="usuarioStatus" class="form-select" required>
                                 <option value="ativo">Ativo</option>
                                 <option value="inativo">Inativo</option>
                             </select>
                         </div>
                     </div>
-
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
-                        <div class="form-group">
-                            <label for="usuarioPin"><i class="fa-solid fa-key"></i> Senha / PIN de Acesso</label>
-                            <input type="password" id="usuarioPin" class="input-control font-mono"
-                                placeholder="Deixe em branco para manter" maxlength="12">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fs-sm" for="usuarioPin"><i class="fa-solid fa-key me-1"></i> Senha / PIN de Acesso</label>
+                            <input type="password" id="usuarioPin" class="form-control font-mono" placeholder="Deixe em branco p/ manter" maxlength="12">
                         </div>
-                        <div class="form-group">
-                            <label><i class="fa-solid fa-palette"></i> Cor do Avatar</label>
+                        <div class="col-md-6">
+                            <label class="form-label fs-sm"><i class="fa-solid fa-palette me-1"></i> Cor do Avatar</label>
                             <input type="hidden" id="usuarioAvatarCor" value="#3b82f6">
                             <div class="avatar-color-swatches" id="usuarioAvatarColorSwatches">
-                                <div class="color-swatch-opt active" style="background: #3b82f6;" data-color="#3b82f6"
-                                    onclick="App.selecionarCorAvatar('#3b82f6')"></div>
-                                <div class="color-swatch-opt" style="background: #10b981;" data-color="#10b981"
-                                    onclick="App.selecionarCorAvatar('#10b981')"></div>
-                                <div class="color-swatch-opt" style="background: #8b5cf6;" data-color="#8b5cf6"
-                                    onclick="App.selecionarCorAvatar('#8b5cf6')"></div>
-                                <div class="color-swatch-opt" style="background: #06b6d4;" data-color="#06b6d4"
-                                    onclick="App.selecionarCorAvatar('#06b6d4')"></div>
-                                <div class="color-swatch-opt" style="background: #f59e0b;" data-color="#f59e0b"
-                                    onclick="App.selecionarCorAvatar('#f59e0b')"></div>
-                                <div class="color-swatch-opt" style="background: #ec4899;" data-color="#ec4899"
-                                    onclick="App.selecionarCorAvatar('#ec4899')"></div>
-                                <div class="color-swatch-opt" style="background: #64748b;" data-color="#64748b"
-                                    onclick="App.selecionarCorAvatar('#64748b')"></div>
+                                <div class="color-swatch-opt active" style="background: #3b82f6;" data-color="#3b82f6" onclick="App.selecionarCorAvatar('#3b82f6')"></div>
+                                <div class="color-swatch-opt" style="background: #10b981;" data-color="#10b981" onclick="App.selecionarCorAvatar('#10b981')"></div>
+                                <div class="color-swatch-opt" style="background: #8b5cf6;" data-color="#8b5cf6" onclick="App.selecionarCorAvatar('#8b5cf6')"></div>
+                                <div class="color-swatch-opt" style="background: #06b6d4;" data-color="#06b6d4" onclick="App.selecionarCorAvatar('#06b6d4')"></div>
+                                <div class="color-swatch-opt" style="background: #f59e0b;" data-color="#f59e0b" onclick="App.selecionarCorAvatar('#f59e0b')"></div>
+                                <div class="color-swatch-opt" style="background: #ec4899;" data-color="#ec4899" onclick="App.selecionarCorAvatar('#ec4899')"></div>
+                                <div class="color-swatch-opt" style="background: #64748b;" data-color="#64748b" onclick="App.selecionarCorAvatar('#64748b')"></div>
                             </div>
                         </div>
                     </div>
-
-                    <div class="modal-footer"
-                        style="padding: 0; background: none; border: none; display: flex; gap: 0.75rem; justify-content: flex-end;">
-                        <button type="button" class="btn btn-secondary" onclick="App.fecharModais()">Cancelar</button>
-                        <button type="submit" class="btn btn-primary" id="btnSalvarUsuario">
-                            <i class="fa-solid fa-floppy-disk"></i> Salvar Usuário
+                    <div class="modal-footer p-0 pt-3 bg-transparent border-0">
+                        <button type="button" class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()">Cancelar</button>
+                        <button type="submit" class="btn btn-sm btn-primary" id="btnSalvarUsuario">
+                            <i class="fa-solid fa-floppy-disk me-1"></i> Salvar Usuário
                         </button>
                     </div>
                 </form>
@@ -887,109 +1132,79 @@
 
     <!-- Modal Gerenciamento de Permissões de Usuário -->
     <div class="modal-overlay" id="modalPermissoesUsuario">
-        <div class="modal-card modal-permissoes-card"
-            style="max-width: 780px; width: 95%; max-height: 92vh; display: flex; flex-direction: column;">
+        <div class="modal-card" style="max-width: 800px; width: 95%; max-height: 92vh;">
             <div class="modal-header">
                 <div>
-                    <h3 style="display: flex; align-items: center; gap: 0.5rem;">
-                        <i class="fa-solid fa-shield-halved text-primary"></i>
-                        <span>Permissões de Acesso</span>
-                    </h3>
-                    <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0.2rem;">
-                        Configure o que este usuário pode visualizar e executar no sistema WMS.
-                    </p>
+                    <h3><i class="fa-solid fa-shield-halved text-primary"></i> Permissões de Acesso</h3>
+                    <p class="text-muted fs-xs mb-0">Configure o que este usuário pode visualizar e executar no sistema WMS.</p>
                 </div>
-                <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()"><i
-                        class="fa-solid fa-xmark"></i></button>
+                <button class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
             </div>
-
-            <div class="modal-body" style="padding: 1.25rem; overflow-y: auto; flex: 1;">
+            <div class="modal-body">
                 <input type="hidden" id="permUserId" value="">
 
-                <!-- Profile Header Card -->
+                <!-- Profile Header Banner -->
                 <div class="perm-user-banner" id="permUserBanner">
                     <div class="perm-avatar" id="permUserAvatar">D</div>
                     <div class="perm-user-info">
                         <div class="perm-user-name" id="permUserName">David Silva</div>
                         <div class="perm-user-meta">
-                            <span id="permUserEmail"><i class="fa-solid fa-envelope"></i> david@primepro.com.br</span>
-                            <span class="role-badge" id="permUserRoleBadge">Administrador</span>
-                            <span class="perm-count-badge" id="permCountBadge"><i class="fa-solid fa-key"></i> 15 de 15
-                                ativas</span>
+                            <span id="permUserEmail"><i class="fa-solid fa-envelope me-1"></i> david@primepro.com.br</span>
+                            <span class="badge bg-primary-light text-primary" id="permUserRoleBadge">Administrador</span>
+                            <span class="badge bg-body text-body border" id="permCountBadge"><i class="fa-solid fa-key me-1"></i> 15 de 15 ativas</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Mode Switcher: Role Default vs Custom -->
+                <!-- Mode Switcher -->
                 <div class="perm-mode-selector">
                     <label class="perm-mode-option" id="lblPermModeDefault">
-                        <input type="radio" name="permMode" id="permModeDefault" value="default"
-                            onchange="App.alternarModoPermissao('default')">
-                        <div class="perm-mode-content">
-                            <div class="perm-mode-title"><i class="fa-solid fa-wand-magic-sparkles"></i> Padrão do Cargo
-                            </div>
-                            <div class="perm-mode-desc">Sincroniza automaticamente com a função (<span
-                                    id="permRoleNameDesc">Operador</span>).</div>
+                        <input type="radio" name="permMode" id="permModeDefault" value="default" onchange="App.alternarModoPermissao('default')">
+                        <div>
+                            <div class="perm-mode-title"><i class="fa-solid fa-wand-magic-sparkles text-primary me-1"></i> Padrão do Cargo</div>
+                            <div class="perm-mode-desc">Sincroniza automaticamente com a função (<span id="permRoleNameDesc">Operador</span>).</div>
                         </div>
                     </label>
-
                     <label class="perm-mode-option active" id="lblPermModeCustom">
-                        <input type="radio" name="permMode" id="permModeCustom" value="custom"
-                            onchange="App.alternarModoPermissao('custom')" checked>
-                        <div class="perm-mode-content">
-                            <div class="perm-mode-title"><i class="fa-solid fa-sliders"></i> Permissões Personalizadas
-                            </div>
-                            <div class="perm-mode-desc">Defina manualmente cada permissão individual para este usuário.
-                            </div>
+                        <input type="radio" name="permMode" id="permModeCustom" value="custom" onchange="App.alternarModoPermissao('custom')" checked>
+                        <div>
+                            <div class="perm-mode-title"><i class="fa-solid fa-sliders text-primary me-1"></i> Permissões Customizadas</div>
+                            <div class="perm-mode-desc">Defina manualmente cada permissão individual para este usuário.</div>
                         </div>
                     </label>
                 </div>
 
-                <!-- Presets and Search Bar -->
+                <!-- Presets & Toolbar -->
                 <div class="perm-toolbar" id="permToolbar">
                     <div class="perm-search-box">
                         <i class="fa-solid fa-magnifying-glass"></i>
-                        <input type="text" id="inputBuscaPermissoes" placeholder="Filtrar permissões..."
-                            oninput="App.filtrarPermissoesUI(this.value)">
+                        <input type="text" id="inputBuscaPermissoes" placeholder="Filtrar permissões..." oninput="App.filtrarPermissoesUI(this.value)">
                     </div>
-
                     <div class="perm-presets">
-                        <span class="perm-preset-label"><i class="fa-solid fa-bolt"></i> Perfis:</span>
-                        <button type="button" class="btn btn-secondary btn-xs"
-                            onclick="App.aplicarPresetPermissoes('operador')">Operador</button>
-                        <button type="button" class="btn btn-secondary btn-xs"
-                            onclick="App.aplicarPresetPermissoes('conferente')">Conferente</button>
-                        <button type="button" class="btn btn-secondary btn-xs"
-                            onclick="App.aplicarPresetPermissoes('supervisor')">Supervisor</button>
-                        <button type="button" class="btn btn-secondary btn-xs"
-                            onclick="App.aplicarPresetPermissoes('admin')">Admin</button>
-                        <div style="width: 1px; height: 18px; background: var(--border-color); margin: 0 0.2rem;"></div>
-                        <button type="button" class="btn btn-secondary btn-xs" onclick="App.marcarTodasPermissoes(true)"
-                            title="Marcar todas"><i class="fa-solid fa-check-double"></i> Todas</button>
-                        <button type="button" class="btn btn-secondary btn-xs"
-                            onclick="App.marcarTodasPermissoes(false)" title="Desmarcar todas"><i
-                                class="fa-solid fa-ban"></i> Limpar</button>
+                        <span class="fs-xs fw-semibold text-muted me-1"><i class="fa-solid fa-bolt text-warning"></i> Perfis:</span>
+                        <button type="button" class="btn btn-alt-secondary btn-xs" onclick="App.aplicarPresetPermissoes('operador')">Operador</button>
+                        <button type="button" class="btn btn-alt-secondary btn-xs" onclick="App.aplicarPresetPermissoes('conferente')">Conferente</button>
+                        <button type="button" class="btn btn-alt-secondary btn-xs" onclick="App.aplicarPresetPermissoes('supervisor')">Supervisor</button>
+                        <button type="button" class="btn btn-alt-secondary btn-xs" onclick="App.aplicarPresetPermissoes('admin')">Admin</button>
+                        <div class="vr my-1"></div>
+                        <button type="button" class="btn btn-alt-secondary btn-xs" onclick="App.marcarTodasPermissoes(true)" title="Marcar todas"><i class="fa-solid fa-check-double text-success"></i></button>
+                        <button type="button" class="btn btn-alt-secondary btn-xs" onclick="App.marcarTodasPermissoes(false)" title="Desmarcar todas"><i class="fa-solid fa-ban text-danger"></i></button>
                     </div>
                 </div>
 
-                <!-- Category Grouped Permissions Grid -->
+                <!-- Categories Grid -->
                 <div class="perm-categories-container" id="permCategoriesContainer">
                     <!-- Gerado dinamicamente via JS -->
                 </div>
             </div>
-
-            <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
-                <div id="permFooterStatus" style="font-size: 0.85rem; color: var(--text-secondary);">
-                    <span id="permTotalSelecionadas" style="font-weight: 700; color: var(--text-primary);">0</span>
-                    permissões ativas
+            <div class="modal-footer">
+                <div id="permFooterStatus" class="fs-xs text-muted me-auto">
+                    <span id="permTotalSelecionadas" class="fw-bold text-body">0</span> permissões ativas
                 </div>
-                <div style="display: flex; gap: 0.75rem;">
-                    <button type="button" class="btn btn-secondary" onclick="App.fecharModais()">Cancelar</button>
-                    <button type="button" class="btn btn-primary" id="btnSalvarPermissoes"
-                        onclick="App.salvarPermissoesUsuario()">
-                        <i class="fa-solid fa-floppy-disk"></i> Salvar Permissões
-                    </button>
-                </div>
+                <button type="button" class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()">Cancelar</button>
+                <button type="button" class="btn btn-sm btn-primary" id="btnSalvarPermissoes" onclick="App.salvarPermissoesUsuario()">
+                    <i class="fa-solid fa-floppy-disk me-1"></i> Salvar Permissões
+                </button>
             </div>
         </div>
     </div>
@@ -997,26 +1212,23 @@
     <!-- Modal Confirmar Exclusão de Usuário -->
     <div class="modal-overlay" id="modalExcluirUsuario">
         <div class="modal-card" style="max-width: 440px;">
-            <div class="modal-header" style="border-bottom: 1px solid var(--color-danger-border);">
-                <h3 style="color: var(--color-danger);"><i class="fa-solid fa-trash"></i> Excluir Usuário</h3>
-                <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()"><i
-                        class="fa-solid fa-xmark"></i></button>
+            <div class="modal-header border-danger">
+                <h3 class="text-danger"><i class="fa-solid fa-trash me-1"></i> Excluir Usuário</h3>
+                <button class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="excluirUsuarioId" value="">
-                <p style="color: var(--text-secondary); margin-bottom: 1rem; line-height: 1.5;">
-                    Tem certeza de que deseja remover o usuário <strong id="lblExcluirUsuarioNome"
-                        style="color: var(--text-primary);">---</strong> do sistema?
+                <p class="text-muted mb-3">
+                    Tem certeza de que deseja remover o usuário <strong id="lblExcluirUsuarioNome" class="text-body">---</strong> do sistema?
                 </p>
-                <p style="color: var(--color-danger); font-size: 0.85rem;">
-                    <i class="fa-solid fa-triangle-exclamation"></i> Esta ação removerá permanentemente o acesso do
-                    usuário.
-                </p>
+                <div class="alert alert-danger fs-xs mb-0 py-2 px-3">
+                    <i class="fa-solid fa-triangle-exclamation me-1"></i> Esta ação removerá permanentemente o acesso do usuário.
+                </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="App.fecharModais()">Cancelar</button>
-                <button type="button" class="btn btn-danger" onclick="App.executarExclusaoUsuario()">
-                    <i class="fa-solid fa-trash"></i> Confirmar Exclusão
+                <button type="button" class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()">Cancelar</button>
+                <button type="button" class="btn btn-sm btn-danger" onclick="App.executarExclusaoUsuario()">
+                    <i class="fa-solid fa-trash me-1"></i> Confirmar Exclusão
                 </button>
             </div>
         </div>
@@ -1025,47 +1237,35 @@
     <!-- Modal Cancelar Separação -->
     <div class="modal-overlay" id="modalCancelarSeparacao">
         <div class="modal-card" style="max-width: 480px;">
-            <div class="modal-header" style="border-bottom: 1px solid var(--color-danger-border);">
-                <h3 style="color: var(--color-danger);"><i class="fa-solid fa-ban"></i> Cancelar Separação</h3>
-                <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()"><i
-                        class="fa-solid fa-xmark"></i></button>
+            <div class="modal-header border-danger">
+                <h3 class="text-danger"><i class="fa-solid fa-ban me-1"></i> Cancelar Separação</h3>
+                <button class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="modal-body">
                 <form id="formCancelarSeparacao" onsubmit="App.confirmarCancelamentoSeparacao(event)">
                     <input type="hidden" id="cancelarConferenciaId">
                     <input type="hidden" id="cancelarNumeroPedido">
-
-                    <p style="color: var(--text-secondary); margin-bottom: 1.25rem; font-size: 0.9rem;">
-                        Você está prestes a cancelar a separação do pedido <strong id="lblCancelarNumeroPedido"
-                            style="color: #fff;">#---</strong>.
+                    <p class="text-muted mb-3 fs-sm">
+                        Você está prestes a cancelar a separação do pedido <strong id="lblCancelarNumeroPedido" class="text-body">#---</strong>.
                     </p>
-
-                    <div class="form-group" style="margin-bottom: 1rem;">
-                        <label for="cancelarMotivo"><i class="fa-solid fa-list-check"></i> Motivo do
-                            Cancelamento</label>
-                        <select id="cancelarMotivo" class="select-control" required>
+                    <div class="mb-3">
+                        <label class="form-label fs-sm" for="cancelarMotivo"><i class="fa-solid fa-list-check me-1"></i> Motivo do Cancelamento</label>
+                        <select id="cancelarMotivo" class="form-select" required>
                             <option value="Desistência do cliente">Desistência do cliente</option>
-                            <option value="Falta de estoque / Produto avariado">Falta de estoque / Produto avariado
-                            </option>
+                            <option value="Falta de estoque / Produto avariado">Falta de estoque / Produto avariado</option>
                             <option value="Pedido alterado no ERP">Pedido alterado no ERP</option>
                             <option value="Pedido duplicado">Pedido duplicado</option>
                             <option value="Erro operacional / Reagendamento">Erro operacional / Reagendamento</option>
                             <option value="Outro motivo">Outro motivo</option>
                         </select>
                     </div>
-
-                    <div class="form-group" style="margin-bottom: 1.5rem;">
-                        <label for="cancelarObservacoes"><i class="fa-solid fa-comment"></i> Observações adicionais
-                            (Opcional)</label>
-                        <textarea id="cancelarObservacoes" class="input-control" rows="3"
-                            placeholder="Detalhes sobre o cancelamento..."></textarea>
+                    <div class="mb-3">
+                        <label class="form-label fs-sm" for="cancelarObservacoes"><i class="fa-solid fa-comment me-1"></i> Observações adicionais (Opcional)</label>
+                        <textarea id="cancelarObservacoes" class="form-control" rows="3" placeholder="Detalhes sobre o cancelamento..."></textarea>
                     </div>
-
-                    <div class="modal-footer"
-                        style="padding: 0; background: none; border: none; display: flex; gap: 0.75rem; justify-content: flex-end;">
-                        <button type="button" class="btn btn-secondary" onclick="App.fecharModais()">Voltar</button>
-                        <button type="submit" class="btn btn-danger"><i class="fa-solid fa-ban"></i> Confirmar
-                            Cancelamento</button>
+                    <div class="modal-footer p-0 pt-3 bg-transparent border-0">
+                        <button type="button" class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()">Voltar</button>
+                        <button type="submit" class="btn btn-sm btn-danger"><i class="fa-solid fa-ban me-1"></i> Confirmar Cancelamento</button>
                     </div>
                 </form>
             </div>
@@ -1076,19 +1276,17 @@
     <div class="modal-overlay" id="modalRomaneio">
         <div class="modal-card" style="max-width: 850px; width: 95%; max-height: 90vh;">
             <div class="modal-header">
-                <h3><i class="fa-solid fa-file-invoice"></i> Romaneio de Separação & Conferência</h3>
-                <div style="display: flex; gap: 0.5rem; align-items: center;">
-                    <button class="btn btn-primary btn-sm" onclick="App.imprimirRomaneioAtual()"
-                        title="Imprimir Romaneio">
-                        <i class="fa-solid fa-print"></i> Imprimir Romaneio
+                <h3><i class="fa-solid fa-file-invoice text-primary"></i> Romaneio de Separação & Conferência</h3>
+                <div class="d-flex gap-2 align-items-center">
+                    <button class="btn btn-sm btn-primary" onclick="App.imprimirRomaneioAtual()" title="Imprimir Romaneio">
+                        <i class="fa-solid fa-print me-1"></i> Imprimir Romaneio
                     </button>
-                    <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()" title="Fechar">
+                    <button class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()" title="Fechar">
                         <i class="fa-solid fa-xmark"></i>
                     </button>
                 </div>
             </div>
-            <div class="modal-body"
-                style="padding: 1.25rem; overflow-y: auto; background: #ffffff; color: #1e293b; border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
+            <div class="modal-body p-4 bg-white text-dark" style="overflow-y: auto;">
                 <div id="modalRomaneioConteudo">
                     <!-- Conteúdo dinâmico do romaneio -->
                 </div>
@@ -1102,52 +1300,50 @@
     <!-- Área de Impressão (Romaneios e Etiquetas de Volumes) -->
     <div id="printArea" class="print-area"></div>
 
-    <!-- Tela de Login dos Operadores (Glassmorphism) -->
+    <!-- ===================================================================
+         TELA DE LOGIN (ONEUI AUTHENTICATION STYLE)
+         =================================================================== -->
     <div id="login-screen" class="login-overlay active">
-        <div class="login-card">
-            <div class="login-header">
-                <div class="login-logo">
-                    <i class="fa-solid fa-boxes-packing"></i>
+        <div class="login-card-oneui">
+            <div class="p-4 p-sm-5 text-center bg-body-light border-bottom">
+                <div class="d-inline-flex align-items-center justify-content-center bg-primary-light text-primary rounded-circle mb-3" style="width: 56px; height: 56px;">
+                    <i class="fa-solid fa-boxes-packing fs-3 text-primary"></i>
                 </div>
-                <h2 class="login-title">WMS PRIME</h2>
-                <p class="login-subtitle">Conferência & Separação Logística</p>
+                <h1 class="h3 fw-bold mb-1">WMS PRIME</h1>
+                <p class="fs-sm text-muted mb-0">Conferência & Separação Logística</p>
             </div>
-
-            <form id="loginForm" onsubmit="App.efetuarLogin(event)" class="login-form">
-                <div class="form-group">
-                    <label for="loginEmail">
-                        <i class="fa-solid fa-envelope"></i> Usuário / E-mail
-                    </label>
-                    <input type="email" id="loginEmail" class="input-control" required
-                        placeholder="Ex: seuemail@primepro.com.br">
-                </div>
-
-                <div class="form-group">
-                    <label for="loginSenha">
-                        <i class="fa-solid fa-lock"></i> Senha de Acesso
-                    </label>
-                    <input type="password" id="loginSenha" class="input-control" required
-                        placeholder="Digite sua senha ou PIN">
-                </div>
-
-                <div style="margin-top: 0.5rem;">
-                    <button type="submit" class="btn btn-primary"
-                        style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.85rem; font-size: 0.95rem; font-weight: 700;">
-                        <i class="fa-solid fa-right-from-bracket"></i> Entrar no Sistema
-                    </button>
-                </div>
-
-                <div id="loginErrorMessage"
-                    style="color: var(--color-danger); text-align: center; font-size: 0.85rem; font-weight: 600; min-height: 1.2rem; margin-top: 0.5rem;">
-                </div>
-            </form>
+            <div class="p-4 p-sm-5">
+                <form id="loginForm" onsubmit="App.efetuarLogin(event)">
+                    <div class="mb-4">
+                        <label class="form-label fs-sm" for="loginEmail">
+                            <i class="fa-solid fa-envelope me-1 text-muted"></i> E-mail de Acesso
+                        </label>
+                        <input type="email" id="loginEmail" class="form-control" required placeholder="exemplo@primepro.com.br" autofocus>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label fs-sm" for="loginSenha">
+                            <i class="fa-solid fa-lock me-1 text-muted"></i> Senha ou PIN
+                        </label>
+                        <input type="password" id="loginSenha" class="form-control" required placeholder="Digite sua senha ou PIN">
+                    </div>
+                    <div class="mb-3">
+                        <button type="submit" class="btn btn-primary w-100 py-2 fw-bold d-flex align-items-center justify-content-center gap-2">
+                            <i class="fa-solid fa-right-from-bracket"></i> Entrar no Sistema
+                        </button>
+                    </div>
+                    <div id="loginErrorMessage" class="text-danger text-center fs-xs fw-semibold min-height-1 mb-0"></div>
+                </form>
+            </div>
         </div>
     </div>
 
-    <!-- Application JavaScript Engine -->
-    <script src="js/audio.js?v=2.0"></script>
-    <script src="js/scanner.js?v=2.0"></script>
-    <script src="js/app.js?v=2.0"></script>
+    <!-- OneUI App JS Bundle (Bootstrap 5 + SimpleBar + OneUI Core) -->
+    <script src="assets/js/oneui.app.min.js"></script>
+
+    <!-- WMS Application Logic -->
+    <script src="js/audio.js?v=2.5"></script>
+    <script src="js/scanner.js?v=2.5"></script>
+    <script src="js/app.js?v=2.5"></script>
 </body>
 
 </html>

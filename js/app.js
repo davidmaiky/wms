@@ -208,7 +208,12 @@ const App = {
         document.querySelectorAll('.nav-btn').forEach(btn => {
             const view = btn.getAttribute('data-view');
             if (view && navMap[view] !== undefined) {
-                btn.style.display = navMap[view] ? '' : 'none';
+                const parentItem = btn.closest('.nav-main-item');
+                if (parentItem) {
+                    parentItem.style.display = navMap[view] ? '' : 'none';
+                } else {
+                    btn.style.display = navMap[view] ? '' : 'none';
+                }
             }
         });
 
@@ -233,14 +238,29 @@ const App = {
     },
 
     atualizarOperadorHeader() {
+        const nome = this.operador || 'David';
+        const initial = nome.charAt(0).toUpperCase();
+        const cor = (this.currentUser && this.currentUser.avatar_cor) ? this.currentUser.avatar_cor : '#3b82f6';
+
         const lbl = document.getElementById('lblOperadorHeader');
-        if (lbl) lbl.textContent = this.operador || 'Operador';
+        if (lbl) lbl.textContent = nome;
         const mini = document.getElementById('avatarMiniHeader');
         if (mini) {
-            mini.textContent = (this.operador || 'O').charAt(0).toUpperCase();
-            if (this.currentUser && this.currentUser.avatar_cor) {
-                mini.style.background = this.currentUser.avatar_cor;
-            }
+            mini.textContent = initial;
+            mini.style.background = cor;
+        }
+
+        const lblDrop = document.getElementById('lblOperadorDropdownNome');
+        if (lblDrop) lblDrop.textContent = nome;
+        const lblRole = document.getElementById('lblOperadorDropdownRole');
+        if (lblRole && this.currentUser) {
+            const roleLabels = { 'admin': 'Administrador', 'supervisor': 'Supervisor', 'conferente': 'Conferente', 'operador': 'Operador' };
+            lblRole.textContent = roleLabels[this.currentUser.funcao] || this.currentUser.funcao || 'Operador';
+        }
+        const miniDrop = document.getElementById('avatarMiniDropdown');
+        if (miniDrop) {
+            miniDrop.textContent = initial;
+            miniDrop.style.background = cor;
         }
     },
 
@@ -319,6 +339,12 @@ const App = {
         }
 
         this.currentView = viewName;
+
+        // Fechar sidebar retrátil no mobile ao navegar
+        const pageContainer = document.getElementById('page-container');
+        if (pageContainer && window.innerWidth < 992) {
+            pageContainer.classList.remove('sidebar-o-xs');
+        }
 
         // Atualizar botões do menu
         document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -2408,22 +2434,23 @@ const App = {
     // --- TOAST NOTIFICATIONS ---
     toast(mensagem, tipo = 'info') {
         const container = document.getElementById('toastContainer');
+        if (!container) return;
         const toast = document.createElement('div');
-        toast.className = `toast toast-${tipo}`;
+        toast.className = `wms-toast toast-${tipo}`;
 
-        let icon = '<i class="fa-solid fa-circle-info"></i>';
-        if (tipo === 'success') icon = '<i class="fa-solid fa-circle-check"></i>';
-        else if (tipo === 'error') icon = '<i class="fa-solid fa-triangle-exclamation"></i>';
-        else if (tipo === 'warning') icon = '<i class="fa-solid fa-circle-exclamation"></i>';
+        let icon = '<i class="fa-solid fa-circle-info text-primary"></i>';
+        if (tipo === 'success') icon = '<i class="fa-solid fa-circle-check text-success"></i>';
+        else if (tipo === 'error') icon = '<i class="fa-solid fa-triangle-exclamation text-danger"></i>';
+        else if (tipo === 'warning') icon = '<i class="fa-solid fa-circle-exclamation text-warning"></i>';
 
         toast.innerHTML = `${icon} <span>${mensagem}</span>`;
         container.appendChild(toast);
 
         setTimeout(() => {
             toast.style.opacity = '0';
-            toast.style.transform = 'translateX(100%)';
-            toast.style.transition = 'all 0.3s ease-out';
-            setTimeout(() => toast.remove(), 300);
+            toast.style.transform = 'translateY(16px)';
+            toast.style.transition = 'all 0.25s ease-out';
+            setTimeout(() => toast.remove(), 260);
         }, 3500);
     }
 };
