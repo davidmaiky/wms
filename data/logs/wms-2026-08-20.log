@@ -10,3 +10,9 @@
 [2026-08-20 18:55:53] [INFO] [User: anonimo] [IP: 10.11.0.24] Login realizado com sucesso: 'david@primepro.com.br'
 [2026-08-20 18:56:45] [INFO] [User: anonimo] [IP: 10.11.0.24] Login realizado com sucesso: 'david@primepro.com.br'
 [2026-08-20 19:31:01] [WARNING] [User: david@primepro.com.br] [IP: 10.11.0.24] SIGE Cloud API lenta: request/pedidos/pesquisar (7183.59ms)
+[2026-08-20 19:40:32] [INFO] [User: anonimo] [IP: 10.11.0.24] Login realizado com sucesso: 'estoque@visathair.com.br'
+[2026-08-20 19:41:10] [INFO] [User: anonimo] [IP: 10.11.0.24] Login realizado com sucesso: 'david@primepro.com.br'
+[2026-08-20 19:49:31] [INFO] [User: anonimo] [IP: 10.11.0.24] Login realizado com sucesso: 'david@primepro.com.br'
+[2026-08-20 20:49:37] [ERROR] [User: david@primepro.com.br] [IP: 10.11.0.24] HTTP 500: Erro no módulo de ondas: SQLSTATE[HY000]: General error: 1 no such column: c.data_pedido | Context: {"details":null}
+[2026-08-20 20:50:16] [ERROR] [User: anonimo] [IP: cli] HTTP 500: Erro no módulo de ondas: SQLSTATE[HY000]: General error: 1 no such column: c.data_pedido | Context: {"details":null}
+[2026-08-20 20:51:31] [ERROR] [User: anonimo] [IP: cli] HTTP 500: Erro no módulo de packing: SQLSTATE[HY000]: General error: 1 no such column: peso_bruto | Context: {"details":null}

@@ -4,59 +4,67 @@
  * Gerencia o agrupamento de pedidos, consolidação de itens por localização e distribuição em caixas (Put-to-Box).
  */
 
+require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/db.php';
-require_once __DIR__ . '/auth.php';
 
-header('Content-Type: application/json; charset=utf-8');
+$action = $_GET['action'] ?? $_POST['action'] ?? '';
+$db = getDB();
+$user = $_SESSION['wms_user'] ?? ['nome' => 'Operador'];
 
-$action = $_GET['action'] ?? '';
-$user = obterUsuarioAutenticado($pdo);
+// Ler payload JSON se enviado via body
+$inputJSON = json_decode(file_get_contents('php://input'), true);
+if (is_array($inputJSON)) {
+    $_POST = array_merge($_POST, $inputJSON);
+}
 
-switch ($action) {
-    case 'listar':
-        exigirPermissao($pdo, $user, 'onda_visualizar');
-        listarOndas($pdo);
-        break;
+try {
+    switch ($action) {
+        case 'listar':
+            requirePermission('onda_visualizar');
+            listarOndas($db);
+            break;
 
-    case 'obter':
-        exigirPermissao($pdo, $user, 'onda_visualizar');
-        obterOnda($pdo);
-        break;
+        case 'obter':
+            requirePermission('onda_visualizar');
+            obterOnda($db);
+            break;
 
-    case 'pedidos_disponiveis':
-        exigirPermissao($pdo, $user, 'onda_criar');
-        listarPedidosDisponiveis($pdo);
-        break;
+        case 'pedidos_disponiveis':
+            requirePermission('onda_criar');
+            listarPedidosDisponiveis($db);
+            break;
 
-    case 'criar':
-        exigirPermissao($pdo, $user, 'onda_criar');
-        criarOnda($pdo, $user);
-        break;
+        case 'criar':
+            requirePermission('onda_criar');
+            criarOnda($db, $user);
+            break;
 
-    case 'iniciar':
-        exigirPermissao($pdo, $user, 'onda_separar');
-        iniciarOnda($pdo, $user);
-        break;
+        case 'iniciar':
+            requirePermission('onda_separar');
+            iniciarOnda($db, $user);
+            break;
 
-    case 'bipar':
-        exigirPermissao($pdo, $user, 'onda_separar');
-        biparOnda($pdo, $user);
-        break;
+        case 'bipar':
+            requirePermission('onda_separar');
+            biparOnda($db, $user);
+            break;
 
-    case 'finalizar':
-        exigirPermissao($pdo, $user, 'onda_separar');
-        finalizarOnda($pdo, $user);
-        break;
+        case 'finalizar':
+            requirePermission('onda_separar');
+            finalizarOnda($db, $user);
+            break;
 
-    case 'cancelar':
-        exigirPermissao($pdo, $user, 'onda_criar');
-        cancelarOnda($pdo, $user);
-        break;
+        case 'cancelar':
+            requirePermission('onda_criar');
+            cancelarOnda($db, $user);
+            break;
 
-    default:
-        http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Ação inválida para ondas de separação.']);
-        break;
+        default:
+            jsonError('Ação inválida para ondas de separação.', 400);
+            break;
+    }
+} catch (Exception $e) {
+    jsonError('Erro no módulo de ondas: ' . $e->getMessage(), 500);
 }
 
 /**
@@ -100,7 +108,7 @@ function listarOndas(PDO $pdo): void {
         'concluidas' => (int)$pdo->query("SELECT COUNT(*) FROM ondas_separacao WHERE status IN ('separado', 'concluido')")->fetchColumn()
     ];
 
-    echo json_encode([
+    jsonResponse([
         'success' => true,
         'stats' => $stats,
         'ondas' => $ondas
@@ -111,10 +119,9 @@ function listarOndas(PDO $pdo): void {
  * Obtém os detalhes completos de uma onda (pedidos, boxes, itens consolidados ordenados por rota e logs)
  */
 function obterOnda(PDO $pdo): void {
-    $id = (int)($_GET['id'] ?? 0);
+    $id = (int)($_GET['id'] ?? $_POST['id'] ?? 0);
     if ($id <= 0) {
-        echo json_encode(['success' => false, 'error' => 'ID da onda inválido.']);
-        return;
+        jsonError('ID da onda inválido.', 400);
     }
 
     $stmt = $pdo->prepare("SELECT * FROM ondas_separacao WHERE id = ?");
@@ -122,8 +129,7 @@ function obterOnda(PDO $pdo): void {
     $onda = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$onda) {
-        echo json_encode(['success' => false, 'error' => 'Onda não encontrada.']);
-        return;
+        jsonError('Onda não encontrada.', 404);
     }
 
     // Pedidos da onda
@@ -155,7 +161,7 @@ function obterOnda(PDO $pdo): void {
     $stmtLogs->execute([$id]);
     $logs = $stmtLogs->fetchAll(PDO::FETCH_ASSOC);
 
-    echo json_encode([
+    jsonResponse([
         'success' => true,
         'onda' => $onda,
         'pedidos' => $pedidos,
@@ -168,12 +174,12 @@ function obterOnda(PDO $pdo): void {
  * Retorna pedidos disponíveis para agrupamento em nova onda
  */
 function listarPedidosDisponiveis(PDO $pdo): void {
-    // Busca conferências em aberto ou pedidos em cache que não estão em nenhuma onda ativa
+    // Busca conferências em aberto que não estão em nenhuma onda ativa
     $sql = "
-        SELECT c.id, c.numero_pedido, c.cliente, c.data_pedido, c.total_itens, c.status,
+        SELECT c.id, c.numero_pedido, c.cliente, c.criado_em AS data_pedido, c.total_itens, c.status,
                (SELECT COUNT(*) FROM conferencia_itens ci WHERE ci.conferencia_id = c.id) as total_skus
         FROM conferencias c
-        WHERE c.status IN ('pendente', 'parcial', 'em_conferencia')
+        WHERE c.status IN ('pendente', 'parcial', 'em_separacao')
           AND c.numero_pedido NOT IN (
               SELECT op.numero_pedido 
               FROM onda_pedidos op
@@ -185,7 +191,7 @@ function listarPedidosDisponiveis(PDO $pdo): void {
     ";
     $pedidos = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
 
-    echo json_encode([
+    jsonResponse([
         'success' => true,
         'pedidos' => $pedidos
     ]);
@@ -195,14 +201,12 @@ function listarPedidosDisponiveis(PDO $pdo): void {
  * Cria uma nova onda de separação (Wave Picking) a partir de uma lista de pedidos
  */
 function criarOnda(PDO $pdo, ?array $user): void {
-    $input = json_decode(file_get_contents('php://input'), true) ?? [];
-    $pedidosIds = $input['pedidos'] ?? []; // Array de números de pedidos
-    $observacoes = trim($input['observacoes'] ?? '');
+    $pedidosIds = $_POST['pedidos'] ?? []; // Array de números de pedidos
+    $observacoes = trim($_POST['observacoes'] ?? '');
     $operador = $user['nome'] ?? 'Operador';
 
     if (empty($pedidosIds) || !is_array($pedidosIds)) {
-        echo json_encode(['success' => false, 'error' => 'Selecione ao menos um pedido para criar a onda.']);
-        return;
+        jsonError('Selecione ao menos um pedido para criar a onda.', 400);
     }
 
     $pdo->beginTransaction();
@@ -229,7 +233,7 @@ function criarOnda(PDO $pdo, ?array $user): void {
         ");
 
         $stmtItensConf = $pdo->prepare("
-            SELECT ci.codigo_produto, ci.ean, ci.descricao, ci.quantidade
+            SELECT ci.codigo_produto, ci.ean, ci.descricao, ci.quantidade_pedida AS quantidade
             FROM conferencia_itens ci
             JOIN conferencias c ON c.id = ci.conferencia_id
             WHERE c.numero_pedido = ?
@@ -251,7 +255,7 @@ function criarOnda(PDO $pdo, ?array $user): void {
 
             foreach ($itensDoPedido as $item) {
                 $sku = trim($item['codigo_produto']);
-                $qtd = (float)$item['quantidade'];
+                $qtd = (float)($item['quantidade'] ?? 1.0);
                 $totalUnidades += $qtd;
 
                 if (!isset($skusConsolidados[$sku])) {
@@ -315,15 +319,17 @@ function criarOnda(PDO $pdo, ?array $user): void {
 
         $pdo->commit();
 
-        echo json_encode([
+        jsonResponse([
             'success' => true,
             'message' => "Onda {$codigoOnda} criada com sucesso para " . count($pedidosIds) . " pedidos.",
             'onda_id' => $ondaId,
             'codigo_onda' => $codigoOnda
         ]);
     } catch (Exception $e) {
-        $pdo->rollBack();
-        echo json_encode(['success' => false, 'error' => 'Erro ao criar onda: ' . $e->getMessage()]);
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        jsonError('Erro ao criar onda: ' . $e->getMessage(), 500);
     }
 }
 
@@ -331,13 +337,11 @@ function criarOnda(PDO $pdo, ?array $user): void {
  * Inicia a separação da onda
  */
 function iniciarOnda(PDO $pdo, ?array $user): void {
-    $input = json_decode(file_get_contents('php://input'), true) ?? [];
-    $id = (int)($input['id'] ?? 0);
+    $id = (int)($_POST['id'] ?? $_GET['id'] ?? 0);
     $operador = $user['nome'] ?? 'Operador';
 
     if ($id <= 0) {
-        echo json_encode(['success' => false, 'error' => 'ID inválido.']);
-        return;
+        jsonError('ID inválido.', 400);
     }
 
     $stmt = $pdo->prepare("UPDATE ondas_separacao SET status = 'em_separacao', operador = ? WHERE id = ? AND status = 'pendente'");
@@ -352,16 +356,14 @@ function iniciarOnda(PDO $pdo, ?array $user): void {
  * Bipagem inteligente de produto na onda com indicação de Box (Put-to-Box)
  */
 function biparOnda(PDO $pdo, ?array $user): void {
-    $input = json_decode(file_get_contents('php://input'), true) ?? [];
-    $ondaId = (int)($input['onda_id'] ?? 0);
-    $codigoBipado = trim($input['codigo_bipado'] ?? '');
-    $quantidade = max(1.0, (float)($input['quantidade'] ?? 1.0));
-    $tipoLeitura = $input['tipo_leitura'] ?? 'camera';
+    $ondaId = (int)($_POST['onda_id'] ?? 0);
+    $codigoBipado = trim($_POST['codigo_bipado'] ?? '');
+    $quantidade = max(1.0, (float)($_POST['quantidade'] ?? 1.0));
+    $tipoLeitura = $_POST['tipo_leitura'] ?? 'camera';
     $operador = $user['nome'] ?? 'Operador';
 
     if ($ondaId <= 0 || $codigoBipado === '') {
-        echo json_encode(['success' => false, 'error' => 'Dados de leitura incompletos.']);
-        return;
+        jsonError('Dados de leitura incompletos.', 400);
     }
 
     // 1. Identificar SKU correspondente
@@ -395,22 +397,14 @@ function biparOnda(PDO $pdo, ?array $user): void {
     }
 
     if (!$skuIdentificado || !$itemConsolidado) {
-        echo json_encode([
-            'success' => false,
-            'error' => "O produto '{$codigoBipado}' não pertence aos pedidos desta onda de separação."
-        ]);
-        return;
+        jsonError("O produto '{$codigoBipado}' não pertence aos pedidos desta onda de separação.", 400);
     }
 
     $qtdTotal = (float)$itemConsolidado['quantidade_total'];
     $qtdColetada = (float)$itemConsolidado['quantidade_coletada'];
 
     if ($qtdColetada + $quantidade > $qtdTotal) {
-        echo json_encode([
-            'success' => false,
-            'error' => "Quantidade total necessária para o SKU {$skuIdentificado} já foi totalmente coletada ({$qtdColetada}/{$qtdTotal})."
-        ]);
-        return;
+        jsonError("Quantidade total necessária para o SKU {$skuIdentificado} já foi totalmente coletada ({$qtdColetada}/{$qtdTotal}).", 400);
     }
 
     $pdo->beginTransaction();
@@ -419,12 +413,12 @@ function biparOnda(PDO $pdo, ?array $user): void {
         // Buscar pedidos da onda que ainda precisam deste SKU
         $stmtDest = $pdo->prepare("
             SELECT op.numero_pedido, op.caixa_box_numero, op.cliente,
-                   ci.quantidade AS qtd_esperada,
+                   ci.quantidade_pedida AS qtd_esperada,
                    ci.quantidade_conferida AS qtd_ja_conferida
             FROM onda_pedidos op
             JOIN conferencias c ON c.numero_pedido = op.numero_pedido
             JOIN conferencia_itens ci ON ci.conferencia_id = c.id AND ci.codigo_produto = ?
-            WHERE op.onda_id = ? AND ci.quantidade_conferida < ci.quantidade
+            WHERE op.onda_id = ? AND ci.quantidade_conferida < ci.quantidade_pedida
             ORDER BY op.caixa_box_numero ASC
             LIMIT 1
         ");
@@ -474,9 +468,6 @@ function biparOnda(PDO $pdo, ?array $user): void {
 
         $pdo->commit();
 
-        // Obter estado atualizado para retorno
-        $_GET['id'] = $ondaId;
-        
         // Custom message with Put-to-Box instruction
         $msg = "Coloque {$quantidade} un no BOX #{$boxDestino} (Pedido #{$numPedidoDestino})";
 
@@ -502,7 +493,7 @@ function biparOnda(PDO $pdo, ?array $user): void {
         $stmtLogs->execute([$ondaId]);
         $logs = $stmtLogs->fetchAll(PDO::FETCH_ASSOC);
 
-        echo json_encode([
+        jsonResponse([
             'success' => true,
             'message' => $msg,
             'box_destino' => $boxDestino,
@@ -515,8 +506,10 @@ function biparOnda(PDO $pdo, ?array $user): void {
             'logs' => $logs
         ]);
     } catch (Exception $e) {
-        $pdo->rollBack();
-        echo json_encode(['success' => false, 'error' => 'Erro ao processar bipagem: ' . $e->getMessage()]);
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        jsonError('Erro ao processar bipagem: ' . $e->getMessage(), 500);
     }
 }
 
@@ -524,12 +517,10 @@ function biparOnda(PDO $pdo, ?array $user): void {
  * Conclui a separação da onda
  */
 function finalizarOnda(PDO $pdo, ?array $user): void {
-    $input = json_decode(file_get_contents('php://input'), true) ?? [];
-    $id = (int)($input['id'] ?? 0);
+    $id = (int)($_POST['id'] ?? $_GET['id'] ?? 0);
 
     if ($id <= 0) {
-        echo json_encode(['success' => false, 'error' => 'ID inválido.']);
-        return;
+        jsonError('ID inválido.', 400);
     }
 
     $stmt = $pdo->prepare("
@@ -543,7 +534,7 @@ function finalizarOnda(PDO $pdo, ?array $user): void {
     $stmtPed = $pdo->prepare("UPDATE onda_pedidos SET status = 'separado' WHERE onda_id = ?");
     $stmtPed->execute([$id]);
 
-    echo json_encode([
+    jsonResponse([
         'success' => true,
         'message' => 'Separação em lote da onda finalizada com sucesso! Itens prontos para o Packing Station.'
     ]);
@@ -553,18 +544,16 @@ function finalizarOnda(PDO $pdo, ?array $user): void {
  * Cancela a onda de separação
  */
 function cancelarOnda(PDO $pdo, ?array $user): void {
-    $input = json_decode(file_get_contents('php://input'), true) ?? [];
-    $id = (int)($input['id'] ?? 0);
+    $id = (int)($_POST['id'] ?? $_GET['id'] ?? 0);
 
     if ($id <= 0) {
-        echo json_encode(['success' => false, 'error' => 'ID inválido.']);
-        return;
+        jsonError('ID inválido.', 400);
     }
 
     $stmt = $pdo->prepare("UPDATE ondas_separacao SET status = 'cancelado' WHERE id = ?");
     $stmt->execute([$id]);
 
-    echo json_encode([
+    jsonResponse([
         'success' => true,
         'message' => 'Onda cancelada com sucesso.'
     ]);

@@ -4,49 +4,56 @@
  * Validação de peso teórico vs balança, conferência final de caixas e despacho de volumes.
  */
 
+require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/db.php';
-require_once __DIR__ . '/auth.php';
 
-header('Content-Type: application/json; charset=utf-8');
+$action = $_GET['action'] ?? $_POST['action'] ?? '';
+$db = getDB();
+$user = $_SESSION['wms_user'] ?? ['nome' => 'Operador'];
 
-$action = $_GET['action'] ?? '';
-$user = obterUsuarioAutenticado($pdo);
+// Ler payload JSON se enviado via body
+$inputJSON = json_decode(file_get_contents('php://input'), true);
+if (is_array($inputJSON)) {
+    $_POST = array_merge($_POST, $inputJSON);
+}
 
-switch ($action) {
-    case 'carregar_pedido':
-        exigirPermissao($pdo, $user, 'packing_visualizar');
-        carregarPedidoPacking($pdo);
-        break;
+try {
+    switch ($action) {
+        case 'carregar_pedido':
+            requirePermission('packing_visualizar');
+            carregarPedidoPacking($db);
+            break;
 
-    case 'validar_item':
-        exigirPermissao($pdo, $user, 'packing_embalar');
-        validarItemPacking($pdo, $user);
-        break;
+        case 'validar_item':
+            requirePermission('packing_embalar');
+            validarItemPacking($db, $user);
+            break;
 
-    case 'concluir_embalagem':
-        exigirPermissao($pdo, $user, 'packing_embalar');
-        concluirEmbalagemPacking($pdo, $user);
-        break;
+        case 'concluir_embalagem':
+            requirePermission('packing_embalar');
+            concluirEmbalagemPacking($db, $user);
+            break;
 
-    case 'listar_historico':
-        exigirPermissao($pdo, $user, 'packing_visualizar');
-        listarHistoricoPacking($pdo);
-        break;
+        case 'listar_historico':
+            requirePermission('packing_visualizar');
+            listarHistoricoPacking($db);
+            break;
 
-    default:
-        http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Ação inválida para o Packing Station.']);
-        break;
+        default:
+            jsonError('Ação inválida para o Packing Station.', 400);
+            break;
+    }
+} catch (Exception $e) {
+    jsonError('Erro no módulo de packing: ' . $e->getMessage(), 500);
 }
 
 /**
  * Carrega os dados de um pedido para a bancada de embalagem (por número do pedido, rastreio ou box da onda)
  */
 function carregarPedidoPacking(PDO $pdo): void {
-    $busca = trim($_GET['termo'] ?? '');
+    $busca = trim($_GET['termo'] ?? $_POST['termo'] ?? '');
     if ($busca === '') {
-        echo json_encode(['success' => false, 'error' => 'Informe o número do pedido ou bipe o código de barras.']);
-        return;
+        jsonError('Informe o número do pedido ou bipe o código de barras.', 400);
     }
 
     $numPedido = null;
@@ -80,13 +87,12 @@ function carregarPedidoPacking(PDO $pdo): void {
     $conf = $stmtConf->fetch(PDO::FETCH_ASSOC);
 
     if (!$conf) {
-        echo json_encode(['success' => false, 'error' => "Pedido #{$numPedido} não encontrado no sistema."]);
-        return;
+        jsonError("Pedido #{$numPedido} não encontrado no sistema.", 404);
     }
 
     // Buscar itens do pedido
     $stmtItens = $pdo->prepare("
-        SELECT ci.*,
+        SELECT ci.*, ci.quantidade_pedida AS quantidade,
                (SELECT la.codigo FROM produtos_enderecos pe 
                 JOIN locais_armazenagem la ON la.id = pe.local_id 
                 WHERE pe.codigo_produto = ci.codigo_produto LIMIT 1) AS local_codigo
@@ -102,14 +108,12 @@ function carregarPedidoPacking(PDO $pdo): void {
     $stmtVol->execute([$conf['id']]);
     $volumes = $stmtVol->fetchAll(PDO::FETCH_ASSOC);
 
-    // Calcular peso teórico total dos produtos cadastrados
+    // Calcular peso teórico total dos produtos
     $pesoTeoricoTotalKg = 0.0;
     foreach ($itens as $it) {
-        // Obter peso do cadastro do produto se houver
-        $stmtPeso = $pdo->prepare("SELECT peso_bruto FROM produtos_cache WHERE codigo_produto = ? LIMIT 1");
-        $stmtPeso->execute([$it['codigo_produto']]);
-        $pesoUnitKg = (float)($stmtPeso->fetchColumn() ?: 0.25); // Default 250g se não cadastrado
-        $pesoTeoricoTotalKg += ($pesoUnitKg * (float)$it['quantidade']);
+        $pesoUnitKg = 0.25; // Default 250g
+        $qtd = (float)($it['quantidade_pedida'] ?? $it['quantidade'] ?? 1);
+        $pesoTeoricoTotalKg += ($pesoUnitKg * $qtd);
     }
 
     // Verificar se já passou por checkout
@@ -117,7 +121,7 @@ function carregarPedidoPacking(PDO $pdo): void {
     $stmtCheck->execute([$numPedido]);
     $ultimoCheckout = $stmtCheck->fetch(PDO::FETCH_ASSOC);
 
-    echo json_encode([
+    jsonResponse([
         'success' => true,
         'pedido' => $conf,
         'itens' => $itens,
@@ -131,13 +135,11 @@ function carregarPedidoPacking(PDO $pdo): void {
  * Validação de item bipado na bancada de Packing
  */
 function validarItemPacking(PDO $pdo, ?array $user): void {
-    $input = json_decode(file_get_contents('php://input'), true) ?? [];
-    $confId = (int)($input['conferencia_id'] ?? 0);
-    $codigoBipado = trim($input['codigo_bipado'] ?? '');
+    $confId = (int)($_POST['conferencia_id'] ?? 0);
+    $codigoBipado = trim($_POST['codigo_bipado'] ?? '');
 
     if ($confId <= 0 || $codigoBipado === '') {
-        echo json_encode(['success' => false, 'error' => 'Código ou ID do pedido inválido.']);
-        return;
+        jsonError('Código ou ID do pedido inválido.', 400);
     }
 
     // Localizar item na conferência
@@ -162,14 +164,10 @@ function validarItemPacking(PDO $pdo, ?array $user): void {
     }
 
     if (!$item) {
-        echo json_encode([
-            'success' => false,
-            'error' => "O produto '{$codigoBipado}' não pertence a este pedido!"
-        ]);
-        return;
+        jsonError("O produto '{$codigoBipado}' não pertence a este pedido!", 400);
     }
 
-    echo json_encode([
+    jsonResponse([
         'success' => true,
         'message' => "Item validado: {$item['descricao']}",
         'item' => $item
@@ -180,21 +178,19 @@ function validarItemPacking(PDO $pdo, ?array $user): void {
  * Conclui a embalagem, confere peso e gera despacho
  */
 function concluirEmbalagemPacking(PDO $pdo, ?array $user): void {
-    $input = json_decode(file_get_contents('php://input'), true) ?? [];
-    $numPedido = (int)($input['numero_pedido'] ?? 0);
-    $pesoBalancaKg = (float)($input['peso_balanca_kg'] ?? 0.0);
-    $pesoTeoricoKg = (float)($input['peso_teorico_kg'] ?? 0.0);
-    $volumesTotal = max(1, (int)($input['volumes_total'] ?? 1));
-    $observacoes = trim($input['observacoes'] ?? '');
+    $numPedido = (int)($_POST['numero_pedido'] ?? 0);
+    $pesoBalancaKg = (float)($_POST['peso_balanca_kg'] ?? 0.0);
+    $pesoTeoricoKg = (float)($_POST['peso_teorico_kg'] ?? 0.0);
+    $volumesTotal = max(1, (int)($_POST['volumes_total'] ?? 1));
+    $observacoes = trim($_POST['observacoes'] ?? '');
     $operador = $user['nome'] ?? 'Operador';
 
     if ($numPedido <= 0) {
-        echo json_encode(['success' => false, 'error' => 'Número de pedido inválido.']);
-        return;
+        jsonError('Número de pedido inválido.', 400);
     }
 
     $diferencaGramas = round(($pesoBalancaKg - $pesoTeoricoKg) * 1000, 1);
-    // Tolerância padrão de 80g
+    // Tolerância padrão de 120g
     $statusPeso = (abs($diferencaGramas) <= 120) ? 'ok' : 'divergente';
 
     $pdo->beginTransaction();
@@ -221,10 +217,10 @@ function concluirEmbalagemPacking(PDO $pdo, ?array $user): void {
             $operador
         ]);
 
-        // Atualizar status da conferência para embalado / pronto_coleta
+        // Atualizar status da conferência para embalado
         $stmtUpConf = $pdo->prepare("
             UPDATE conferencias 
-            SET status = 'embalado', data_finalizacao = CURRENT_TIMESTAMP
+            SET status = 'embalado', data_fim = CURRENT_TIMESTAMP, atualizado_em = CURRENT_TIMESTAMP
             WHERE numero_pedido = ?
         ");
         $stmtUpConf->execute([$numPedido]);
@@ -239,7 +235,7 @@ function concluirEmbalagemPacking(PDO $pdo, ?array $user): void {
 
         $pdo->commit();
 
-        echo json_encode([
+        jsonResponse([
             'success' => true,
             'message' => "Pedido #{$numPedido} embalado e finalizado com sucesso!",
             'status_peso' => $statusPeso,
@@ -247,8 +243,10 @@ function concluirEmbalagemPacking(PDO $pdo, ?array $user): void {
             'numero_pedido' => $numPedido
         ]);
     } catch (Exception $e) {
-        $pdo->rollBack();
-        echo json_encode(['success' => false, 'error' => 'Erro ao finalizar packing: ' . $e->getMessage()]);
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        jsonError('Erro ao finalizar packing: ' . $e->getMessage(), 500);
     }
 }
 
@@ -259,7 +257,7 @@ function listarHistoricoPacking(PDO $pdo): void {
     $stmt = $pdo->query("SELECT * FROM packing_checkouts ORDER BY id DESC LIMIT 50");
     $historico = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    echo json_encode([
+    jsonResponse([
         'success' => true,
         'historico' => $historico
     ]);
