@@ -1,0 +1,20 @@
+# Proteção de arquivos confidenciais (SQLite, Logs, Backups)
+<FilesMatch "\.(sqlite|sqlite3|db|log|json|lock)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Bloquear acesso direto à pasta data
+RedirectMatch 403 ^/data/
+
+# Otimização de Cache para PWA e Assets Estáticos
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/svg+xml "access plus 1 month"
+    ExpiresByType text/css "access plus 1 week"
+    ExpiresByType application/javascript "access plus 1 week"
+</IfModule>
