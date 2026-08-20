@@ -9,3 +9,4 @@
 [2026-08-20 18:17:52] [INFO] [User: anonimo] [IP: 10.11.0.24] Login realizado com sucesso: 'david@primepro.com.br'
 [2026-08-20 18:55:53] [INFO] [User: anonimo] [IP: 10.11.0.24] Login realizado com sucesso: 'david@primepro.com.br'
 [2026-08-20 18:56:45] [INFO] [User: anonimo] [IP: 10.11.0.24] Login realizado com sucesso: 'david@primepro.com.br'
+[2026-08-20 19:31:01] [WARNING] [User: david@primepro.com.br] [IP: 10.11.0.24] SIGE Cloud API lenta: request/pedidos/pesquisar (7183.59ms)

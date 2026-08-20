@@ -869,6 +869,70 @@
     border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
+/* ==========================================================================
+   WAVE PICKING (PUT-TO-BOX & COLMEIAS) & PACKING STATION
+   ========================================================================== */
+.colmeia-box-card {
+    border: 2px solid #cbd5e1;
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    background: #ffffff;
+    text-align: center;
+    transition: all 0.25s ease-in-out;
+    position: relative;
+    cursor: default;
+}
+
+.colmeia-box-num {
+    font-size: 1.1rem;
+    font-weight: 800;
+    font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    color: #1e293b;
+}
+
+.colmeia-box-ped {
+    font-size: 0.75rem;
+    color: #64748b;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.colmeia-box-active {
+    border-color: #3b82f6 !important;
+    background: rgba(59, 130, 246, 0.1) !important;
+    transform: scale(1.04);
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+    animation: pulseBox 1.2s infinite;
+}
+
+.colmeia-box-complete {
+    border-color: #10b981 !important;
+    background: rgba(16, 185, 129, 0.08) !important;
+}
+
+.colmeia-box-complete .colmeia-box-num {
+    color: #10b981;
+}
+
+@keyframes pulseBox {
+    0% {
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+    }
+}
+
+.packing-item-checked {
+    border-left: 4px solid #10b981 !important;
+    background: rgba(16, 185, 129, 0.04);
+}
+
 .status-divergente {
     border-left: 4px solid #ef4444 !important;
 }

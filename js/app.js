@@ -65,6 +65,33 @@ const App = {
             });
         }
 
+        const inputManualOnda = document.getElementById('inputManualBarcodeOnda');
+        if (inputManualOnda) {
+            inputManualOnda.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.biparOndaManual();
+                }
+            });
+        }
+
+        const inputManualPacking = document.getElementById('inputManualBarcodePacking');
+        if (inputManualPacking) {
+            inputManualPacking.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.biparPackingManual();
+                }
+            });
+        }
+
+        const inputBuscaPacking = document.getElementById('inputBuscaPacking');
+        if (inputBuscaPacking) {
+            inputBuscaPacking.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.carregarPedidoNaBancadaPacking();
+                }
+            });
+        }
+
         // Verificar se há uma sessão de login ativa
         this.checkSession().then(authenticated => {
             if (authenticated) {
@@ -218,6 +245,8 @@ const App = {
             'pedidos': this.hasPermission('pedidos_visualizar'),
             'conferencia': this.hasPermission('conferencia_bipar') || this.hasPermission('pedidos_iniciar_separacao'),
             'recebimento': this.hasPermission('recebimento_visualizar'),
+            'ondas': this.hasPermission('onda_visualizar'),
+            'packing': this.hasPermission('packing_visualizar'),
             'inventario': this.hasPermission('inventario_visualizar'),
             'devolucoes': this.hasPermission('devolucao_visualizar'),
             'historico': this.hasPermission('historico_visualizar'),
@@ -349,6 +378,8 @@ const App = {
             const permMap = {
                 'pedidos': 'pedidos_visualizar',
                 'recebimento': 'recebimento_visualizar',
+                'ondas': 'onda_visualizar',
+                'packing': 'packing_visualizar',
                 'inventario': 'inventario_visualizar',
                 'devolucoes': 'devolucao_visualizar',
                 'historico': 'historico_visualizar',
@@ -396,6 +427,11 @@ const App = {
             }
         } else if (viewName === 'recebimento') {
             this.carregarRecebimentos();
+            this.stopCamera();
+        } else if (viewName === 'ondas') {
+            this.carregarOndas();
+            this.stopCamera();
+        } else if (viewName === 'packing') {
             this.stopCamera();
         } else if (viewName === 'inventario') {
             this.carregarInventarios();
@@ -853,6 +889,18 @@ const App = {
         // Se estiver na tela de inventário ativo
         if (this.currentView === 'inventario' && this.inventarioAtivo) {
             this.biparInventario(code, type);
+            return;
+        }
+
+        // Se estiver na tela de separação em onda ativa
+        if (this.currentView === 'ondas' && this.ondaAtiva) {
+            this.biparOnda(code, type);
+            return;
+        }
+
+        // Se estiver na tela de packing ativa
+        if (this.currentView === 'packing' && this.packingAtivo) {
+            this.validarItemPacking(code, type);
             return;
         }
 
@@ -4418,6 +4466,752 @@ const App = {
             this.toast('Erro ao processar reestocagem.', 'error');
         }
     },
+
+    // =========================================================================
+    // MÓDULO 11: SEPARAÇÃO EM ONDA / LOTE (WAVE PICKING & MULTI-ORDER)
+    // =========================================================================
+    ondasCache: [],
+    ondaAtiva: null,
+    pedidosDisponiveisOndaCache: [],
+    pedidosSelecionadosOnda: new Set(),
+
+    async carregarOndas() {
+        const busca = document.getElementById('filtroOndasBusca')?.value || '';
+        const status = document.getElementById('filtroOndasStatus')?.value || '';
+
+        const tbody = document.getElementById('ondasTableBody');
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center py-4 text-muted">
+                        <i class="fa-solid fa-spinner fa-spin fa-2x mb-2"></i><br>Carregando ondas de separação...
+                    </td>
+                </tr>
+            `;
+        }
+
+        try {
+            const params = new URLSearchParams({ busca, status, limite: 100 });
+            const res = await fetch(`api/ondas.php?action=listar&${params.toString()}`);
+            const data = await res.json();
+
+            if (!data.success) {
+                if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">${data.error || 'Erro ao carregar ondas.'}</td></tr>`;
+                return;
+            }
+
+            this.ondasCache = data.ondas || [];
+
+            // Atualizar KPIs
+            if (data.stats) {
+                const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+                setVal('kpiOndasTotal', data.stats.total || 0);
+                setVal('kpiOndasPendentes', data.stats.pendentes || 0);
+                setVal('kpiOndasEmSeparacao', data.stats.em_separacao || 0);
+                setVal('kpiOndasConcluidas', data.stats.concluidas || 0);
+            }
+
+            if (!this.ondasCache || this.ondasCache.length === 0) {
+                if (tbody) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">
+                                <i class="fa-solid fa-layer-group fa-2x mb-2 opacity-50"></i><br>Nenhuma onda de separação cadastrada.
+                            </td>
+                        </tr>
+                    `;
+                }
+                return;
+            }
+
+            let html = '';
+            this.ondasCache.forEach(o => {
+                const statusBadge = {
+                    'pendente': '<span class="badge badge-pending"><i class="fa-regular fa-clock me-1"></i> Pendente</span>',
+                    'em_separacao': '<span class="badge badge-progress"><i class="fa-solid fa-spinner fa-spin me-1"></i> Em Separação</span>',
+                    'separado': '<span class="badge bg-info-light text-info"><i class="fa-solid fa-box-open me-1"></i> Pronto p/ Packing</span>',
+                    'concluido': '<span class="badge badge-success"><i class="fa-solid fa-check-double me-1"></i> Concluído</span>',
+                    'cancelado': '<span class="badge bg-danger-light text-danger"><i class="fa-solid fa-ban me-1"></i> Cancelado</span>'
+                }[o.status] || `<span class="badge badge-pending">${o.status}</span>`;
+
+                const dataFmt = o.criado_em ? new Date(o.criado_em).toLocaleDateString('pt-BR') : '';
+
+                html += `
+                    <tr>
+                        <td>
+                            <strong class="font-mono text-primary">${o.codigo_onda}</strong>
+                            ${o.observacoes ? `<br><span class="text-muted fs-xs">${o.observacoes}</span>` : ''}
+                        </td>
+                        <td>
+                            <span class="fw-bold">${o.qtd_pedidos || o.total_pedidos || 0}</span> pedido(s)
+                        </td>
+                        <td>
+                            <span class="fw-bold">${o.qtd_skus || o.total_itens || 0}</span> SKU(s)
+                        </td>
+                        <td>
+                            <span class="font-mono fw-bold">${o.unidades_coletadas || 0}</span> / <span class="font-mono text-muted">${o.total_unidades || 0}</span> un
+                        </td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            <span class="fs-xs text-muted">${dataFmt} • <i class="fa-solid fa-user me-1"></i>${o.operador || 'Operador'}</span>
+                        </td>
+                        <td class="text-end">
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-primary" onclick="App.iniciarSeparacaoOnda(${o.id})" title="Iniciar Separação / Bipar">
+                                    <i class="fa-solid fa-barcode me-1"></i> Separar
+                                </button>
+                                ${o.status === 'pendente' ? `
+                                    <button class="btn btn-alt-danger" onclick="App.cancelarOnda(${o.id})" title="Cancelar Onda">
+                                        <i class="fa-solid fa-ban"></i>
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            if (tbody) tbody.innerHTML = html;
+        } catch (e) {
+            console.error('Erro ao carregar ondas:', e);
+            if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">Erro de conexão ao carregar ondas.</td></tr>`;
+        }
+    },
+
+    limparFiltrosOndas() {
+        const b = document.getElementById('filtroOndasBusca'); if (b) b.value = '';
+        const s = document.getElementById('filtroOndasStatus'); if (s) s.value = '';
+        this.carregarOndas();
+    },
+
+    async modalNovaOnda() {
+        this.pedidosSelecionadosOnda.clear();
+        this.atualizarContadorSelecaoOnda();
+
+        const tbody = document.getElementById('tabelaPedidosDisponiveisOndaBody');
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center py-3 text-muted"><i class="fa-solid fa-spinner fa-spin me-1"></i> Carregando pedidos elegíveis...</td></tr>`;
+        }
+
+        document.getElementById('modalCriarOnda').classList.add('active');
+
+        try {
+            const res = await fetch('api/ondas.php?action=pedidos_disponiveis');
+            const data = await res.json();
+
+            if (data.success && data.pedidos) {
+                this.pedidosDisponiveisOndaCache = data.pedidos;
+                this.renderizarTabelaPedidosDisponiveisOnda(data.pedidos);
+            } else {
+                if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="text-center py-3 text-muted">Nenhum pedido pendente disponível para agrupamento.</td></tr>`;
+            }
+        } catch (e) {
+            console.error('Erro ao carregar pedidos para onda:', e);
+            if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="text-center py-3 text-danger">Erro ao carregar pedidos.</td></tr>`;
+        }
+    },
+
+    renderizarTabelaPedidosDisponiveisOnda(pedidos) {
+        const tbody = document.getElementById('tabelaPedidosDisponiveisOndaBody');
+        if (!tbody) return;
+
+        if (pedidos.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center py-3 text-muted">Nenhum pedido disponível.</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        pedidos.forEach(p => {
+            const checked = this.pedidosSelecionadosOnda.has(p.numero_pedido) ? 'checked' : '';
+            html += `
+                <tr>
+                    <td class="text-center">
+                        <input type="checkbox" class="chk-pedido-onda" value="${p.numero_pedido}" ${checked} onchange="App.aoAlternarPedidoOnda(${p.numero_pedido}, this)">
+                    </td>
+                    <td><strong>#${p.numero_pedido}</strong></td>
+                    <td>${p.cliente || 'Cliente'}</td>
+                    <td>${p.data_pedido ? new Date(p.data_pedido).toLocaleDateString('pt-BR') : ''}</td>
+                    <td><span class="badge bg-secondary-light text-dark">${p.total_skus || p.total_itens || 1} SKU(s)</span></td>
+                    <td><span class="badge badge-pending">${p.status}</span></td>
+                </tr>
+            `;
+        });
+        tbody.innerHTML = html;
+    },
+
+    filtrarPedidosModalOnda() {
+        const termo = document.getElementById('filtroModalOndaPedidos')?.value.toLowerCase().trim() || '';
+        const filtrados = this.pedidosDisponiveisOndaCache.filter(p => 
+            String(p.numero_pedido).includes(termo) || 
+            (p.cliente && p.cliente.toLowerCase().includes(termo))
+        );
+        this.renderizarTabelaPedidosDisponiveisOnda(filtrados);
+    },
+
+    alternarSelecaoTodosPedidosOnda(masterChk) {
+        const checkboxes = document.querySelectorAll('.chk-pedido-onda');
+        checkboxes.forEach(c => {
+            c.checked = masterChk.checked;
+            const num = parseInt(c.value);
+            if (masterChk.checked) {
+                this.pedidosSelecionadosOnda.add(num);
+            } else {
+                this.pedidosSelecionadosOnda.delete(num);
+            }
+        });
+        this.atualizarContadorSelecaoOnda();
+    },
+
+    aoAlternarPedidoOnda(numPedido, chk) {
+        if (chk.checked) {
+            this.pedidosSelecionadosOnda.add(numPedido);
+        } else {
+            this.pedidosSelecionadosOnda.delete(numPedido);
+        }
+        this.atualizarContadorSelecaoOnda();
+    },
+
+    atualizarContadorSelecaoOnda() {
+        const badge = document.getElementById('lblQtdPedidosSelecionadosOnda');
+        if (badge) {
+            badge.textContent = `${this.pedidosSelecionadosOnda.size} selecionado(s)`;
+        }
+    },
+
+    async confirmarCriacaoOnda() {
+        const pedidos = Array.from(this.pedidosSelecionadosOnda);
+        if (pedidos.length === 0) {
+            this.toast('Selecione pelo menos um pedido para gerar a onda.', 'warning');
+            return;
+        }
+
+        const observacoes = document.getElementById('txtObservacoesOnda')?.value.trim() || '';
+
+        try {
+            const res = await fetch('api/ondas.php?action=criar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pedidos, observacoes })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                this.toast(data.message || 'Onda criada com sucesso!', 'success');
+                this.fecharModais();
+                this.carregarOndas();
+                if (data.onda_id) {
+                    this.iniciarSeparacaoOnda(data.onda_id);
+                }
+            } else {
+                this.toast(data.error || 'Erro ao criar onda.', 'error');
+            }
+        } catch (err) {
+            console.error('Erro ao confirmar onda:', err);
+            this.toast('Erro de conexão ao criar onda.', 'error');
+        }
+    },
+
+    async iniciarSeparacaoOnda(ondaId) {
+        try {
+            const res = await fetch('api/ondas.php?action=iniciar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: ondaId, operador: this.operador })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                this.ondaAtiva = data;
+                this.renderizarSeparacaoOnda(data);
+                document.getElementById('ondasListaContainer').style.display = 'none';
+                document.getElementById('ondaAtivaContainer').style.display = 'block';
+                document.getElementById('inputManualBarcodeOnda')?.focus();
+            } else {
+                this.toast(data.error || 'Erro ao iniciar onda.', 'error');
+            }
+        } catch (err) {
+            console.error('Erro ao abrir onda:', err);
+            this.toast('Erro ao abrir sessão de separação.', 'error');
+        }
+    },
+
+    fecharSeparacaoOnda() {
+        this.ondaAtiva = null;
+        this.stopCamera();
+        document.getElementById('ondaAtivaContainer').style.display = 'none';
+        document.getElementById('ondasListaContainer').style.display = 'block';
+        this.carregarOndas();
+    },
+
+    renderizarSeparacaoOnda(data) {
+        const onda = data.onda;
+        const pedidos = data.pedidos || [];
+        const itens = data.itens || [];
+
+        document.getElementById('lblOndaCodigo').textContent = onda.codigo_onda || 'ONDA';
+        document.getElementById('lblOndaTotalPedidos').textContent = pedidos.length;
+        document.getElementById('lblOndaOperador').textContent = onda.operador || this.operador;
+
+        const qtdCol = parseFloat(onda.unidades_coletadas || 0);
+        const qtdTot = parseFloat(onda.total_unidades || 0);
+        const pct = qtdTot > 0 ? Math.min(100, Math.round((qtdCol / qtdTot) * 100)) : 0;
+
+        document.getElementById('lblOndaQtdColetada').textContent = qtdCol;
+        document.getElementById('lblOndaQtdTotal').textContent = qtdTot;
+        document.getElementById('lblOndaProgressoPct').textContent = `${pct}%`;
+        const barFill = document.getElementById('ondaProgressBarFill');
+        if (barFill) barFill.style.width = `${pct}%`;
+
+        // Renderizar Colmeias / Caixas (Put-to-Box Grid)
+        const gridColmeias = document.getElementById('gridColmeiasOnda');
+        if (gridColmeias) {
+            let colmHtml = '';
+            pedidos.forEach(p => {
+                const isCompl = p.status === 'separado' || p.status === 'embalado';
+                colmHtml += `
+                    <div class="col-6 col-md-4 col-lg-3">
+                        <div class="colmeia-box-card ${isCompl ? 'colmeia-box-complete' : ''}" id="colmeia-box-${p.caixa_box_numero}">
+                            <div class="colmeia-box-num">BOX #${p.caixa_box_numero}</div>
+                            <div class="colmeia-box-ped">Ped #${p.numero_pedido}</div>
+                            <div class="fs-xs text-truncate text-muted">${p.cliente || ''}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            gridColmeias.innerHTML = colmHtml;
+        }
+
+        // Renderizar Lista Consolidada com Endereçamento
+        const containerItens = document.getElementById('itensConsolidadosOndaList');
+        if (containerItens) {
+            let html = '';
+            itens.forEach(it => {
+                const itTot = parseFloat(it.quantidade_total || 0);
+                const itCol = parseFloat(it.quantidade_coletada || 0);
+                const isDone = itCol >= itTot;
+
+                const locBadge = it.local_codigo 
+                    ? `<span class="loc-badge loc-badge-picking"><i class="fa-solid fa-location-dot"></i> ${it.local_codigo} (Rua ${it.rua || ''})</span>`
+                    : '<span class="badge bg-secondary-light text-muted">Sem Local Cadastrado</span>';
+
+                html += `
+                    <div class="item-picking-card ${isDone ? 'status-conferido' : 'status-pendente'}" id="onda-item-${it.codigo_produto}">
+                        <div class="item-details">
+                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.35rem;">
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <h4 class="mb-0">${it.descricao}</h4>
+                                    ${locBadge}
+                                </div>
+                                ${isDone ? '<span class="badge badge-success"><i class="fa-solid fa-check me-1"></i> Coletado</span>' : ''}
+                            </div>
+                            <div class="item-meta">
+                                <span>SKU: <strong class="font-mono text-primary">${it.codigo_produto}</strong></span>
+                                <span>EAN: <strong class="font-mono text-success">${it.ean || '---'}</strong></span>
+                            </div>
+                        </div>
+                        <div class="item-count-box">
+                            <span class="conferido-num" style="color: var(--bs-primary);">${itCol}</span>
+                            <span class="separator">/</span>
+                            <span class="total-num">${itTot}</span>
+                        </div>
+                    </div>
+                `;
+            });
+            containerItens.innerHTML = html;
+        }
+    },
+
+    async biparOnda(codigoBipado, tipoLeitura = 'camera') {
+        if (!this.ondaAtiva || !this.ondaAtiva.onda) return;
+
+        const ondaId = this.ondaAtiva.onda.id;
+        const banner = document.getElementById('scanStatusBannerOnda');
+        const bannerPutToBox = document.getElementById('bannerPutToBox');
+
+        try {
+            const res = await fetch('api/ondas.php?action=bipar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    onda_id: ondaId,
+                    codigo_bipado: codigoBipado,
+                    quantidade: 1,
+                    tipo_leitura: tipoLeitura,
+                    operador: this.operador
+                })
+            });
+            const data = await res.json();
+
+            if (!data.success) {
+                window.soundEngine.playError();
+                this.toast(data.error || 'Erro ao bipar na onda.', 'error');
+                if (banner) {
+                    banner.style.display = 'block';
+                    banner.className = 'alert alert-danger fs-xs py-2 px-3 mb-2 text-center';
+                    banner.innerHTML = `<i class="fa-solid fa-xmark"></i> ${data.error || 'Erro na separação!'}`;
+                }
+                return;
+            }
+
+            window.soundEngine.playSuccess();
+            this.ondaAtiva = data;
+            this.renderizarSeparacaoOnda(data);
+
+            // Destacar instrução de Put-to-Box na UI
+            if (bannerPutToBox && data.box_destino) {
+                bannerPutToBox.style.display = 'block';
+                document.getElementById('lblPutToBoxNum').textContent = `BOX #${data.box_destino}`;
+                document.getElementById('lblPutToBoxPedido').textContent = `Pedido #${data.numero_pedido} • ${data.cliente || ''}`;
+                
+                // Animar card da colmeia correspondente
+                const boxEl = document.getElementById(`colmeia-box-${data.box_destino}`);
+                if (boxEl) {
+                    document.querySelectorAll('.colmeia-box-card').forEach(b => b.classList.remove('colmeia-box-active'));
+                    boxEl.classList.add('colmeia-box-active');
+                }
+            }
+
+            if (banner) {
+                banner.style.display = 'block';
+                banner.className = 'alert alert-success fs-xs py-2 px-3 mb-2 text-center';
+                banner.innerHTML = `<i class="fa-solid fa-check"></i> ${data.message || 'Item registrado!'}`;
+            }
+
+            // Animar card do SKU consolidado
+            const card = document.getElementById(`onda-item-${data.sku_bipado}`);
+            if (card) {
+                card.classList.add('just-scanned');
+                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => card.classList.remove('just-scanned'), 700);
+            }
+        } catch (err) {
+            console.error('Erro na bipagem de onda:', err);
+            this.toast('Erro ao registrar bipagem na onda.', 'error');
+        }
+    },
+
+    biparOndaManual() {
+        const inp = document.getElementById('inputManualBarcodeOnda');
+        const code = inp?.value.trim();
+        if (code) {
+            this.biparOnda(code, 'manual');
+            inp.value = '';
+        }
+    },
+
+    async startCameraOnda() {
+        const btnStart = document.getElementById('btnStartCamOnda');
+        const btnStop = document.getElementById('btnStopCamOnda');
+        const laser = document.getElementById('scanLaserOnda');
+
+        const started = await this.scanner.startCamera('readerOnda');
+        if (started) {
+            if (btnStart) btnStart.style.display = 'none';
+            if (btnStop) btnStop.style.display = 'block';
+            if (laser) laser.style.display = 'block';
+        } else {
+            this.toast('Não foi possível iniciar a câmera para Wave Picking.', 'error');
+        }
+    },
+
+    async finalizarSeparacaoOnda() {
+        if (!this.ondaAtiva || !this.ondaAtiva.onda) return;
+        const ondaId = this.ondaAtiva.onda.id;
+
+        try {
+            const res = await fetch('api/ondas.php?action=finalizar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: ondaId })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                window.soundEngine.playOrderComplete();
+                this.toast(data.message || 'Onda concluída com sucesso! Itens liberados para o Packing Station.', 'success');
+                this.fecharSeparacaoOnda();
+            } else {
+                this.toast(data.error || 'Erro ao finalizar onda.', 'error');
+            }
+        } catch (err) {
+            console.error('Erro ao finalizar onda:', err);
+            this.toast('Erro ao finalizar onda.', 'error');
+        }
+    },
+
+    async cancelarOnda(id) {
+        if (!confirm('Deseja realmente cancelar esta onda de separação?')) return;
+
+        try {
+            const res = await fetch('api/ondas.php?action=cancelar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                this.toast('Onda cancelada.', 'info');
+                this.carregarOndas();
+            } else {
+                this.toast(data.error || 'Erro ao cancelar onda.', 'error');
+            }
+        } catch (err) {
+            console.error('Erro ao cancelar onda:', err);
+            this.toast('Erro ao processar cancelamento.', 'error');
+        }
+    },
+
+    // =========================================================================
+    // MÓDULO 12: ESTAÇÃO DE EMBALAGEM & CHECKOUT (PACKING STATION)
+    // =========================================================================
+    packingAtivo: null,
+    itensValidadosPacking: new Set(),
+
+    async carregarPedidoNaBancadaPacking() {
+        const termo = document.getElementById('inputBuscaPacking')?.value.trim();
+        if (!termo) {
+            this.toast('Informe o número do pedido ou bipe a etiqueta.', 'warning');
+            return;
+        }
+        await this.carregarPedidoPackingPorNumero(termo);
+    },
+
+    async carregarPedidoPackingPorNumero(termo) {
+        try {
+            const res = await fetch(`api/packing.php?action=carregar_pedido&termo=${encodeURIComponent(termo)}`);
+            const data = await res.json();
+
+            if (!data.success) {
+                window.soundEngine.playError();
+                this.toast(data.error || 'Pedido não localizado.', 'error');
+                return;
+            }
+
+            window.soundEngine.playSuccess();
+            this.packingAtivo = data;
+            this.itensValidadosPacking.clear();
+            this.renderizarBancadaPacking(data);
+
+            document.getElementById('packingVazioContainer').style.display = 'none';
+            document.getElementById('packingAtivoContainer').style.display = 'flex';
+            document.getElementById('inputManualBarcodePacking')?.focus();
+        } catch (e) {
+            console.error('Erro ao carregar packing:', e);
+            this.toast('Erro ao conectar com a estação de embalagem.', 'error');
+        }
+    },
+
+    limparBancadaPacking() {
+        this.packingAtivo = null;
+        this.itensValidadosPacking.clear();
+        this.stopCamera();
+        const inp = document.getElementById('inputBuscaPacking'); if (inp) inp.value = '';
+        document.getElementById('packingAtivoContainer').style.display = 'none';
+        document.getElementById('packingVazioContainer').style.display = 'block';
+    },
+
+    renderizarBancadaPacking(data) {
+        const ped = data.pedido;
+        const itens = data.itens || [];
+        const pesoTeorico = parseFloat(data.peso_teorico_kg || 0.0);
+
+        document.getElementById('lblPackingNumPedido').textContent = ped.numero_pedido;
+        document.getElementById('lblPackingCliente').textContent = ped.cliente || 'Cliente';
+        document.getElementById('lblPackingPesoTeorico').textContent = pesoTeorico.toFixed(3);
+
+        const inpBalanca = document.getElementById('inputPackingPesoBalanca');
+        if (inpBalanca) {
+            inpBalanca.value = pesoTeorico > 0 ? pesoTeorico.toFixed(3) : '';
+        }
+        this.calcularDiferencaPesoPacking();
+
+        const totalItens = itens.length;
+        const validados = this.itensValidadosPacking.size;
+        const pct = totalItens > 0 ? Math.round((validados / totalItens) * 100) : 0;
+
+        document.getElementById('lblPackingItensValidados').textContent = validados;
+        document.getElementById('lblPackingItensTotal').textContent = totalItens;
+        document.getElementById('lblPackingPorcentagem').textContent = `${pct}%`;
+        const barFill = document.getElementById('packingProgressBarFill');
+        if (barFill) barFill.style.width = `${pct}%`;
+
+        // Renderizar Lista de Itens do Pacote
+        const container = document.getElementById('itensPackingList');
+        if (container) {
+            let html = '';
+            itens.forEach(it => {
+                const isValidado = this.itensValidadosPacking.has(it.codigo_produto);
+                html += `
+                    <div class="item-picking-card ${isValidado ? 'status-conferido packing-item-checked' : 'status-pendente'}" id="packing-item-${it.codigo_produto}">
+                        <div class="item-details">
+                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.35rem;">
+                                <h4 class="mb-0">${it.descricao}</h4>
+                                ${isValidado ? '<span class="badge badge-success"><i class="fa-solid fa-check me-1"></i> Validado na Caixa</span>' : '<span class="badge badge-pending">Pendente</span>'}
+                            </div>
+                            <div class="item-meta">
+                                <span>SKU: <strong class="font-mono text-primary">${it.codigo_produto}</strong></span>
+                                <span>EAN: <strong class="font-mono text-success">${it.ean || '---'}</strong></span>
+                                <span>Qtd: <strong>${it.quantidade} un</strong></span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+    },
+
+    calcularDiferencaPesoPacking() {
+        const pesoTeorico = parseFloat(document.getElementById('lblPackingPesoTeorico')?.textContent || 0.0);
+        const pesoBalanca = parseFloat(document.getElementById('inputPackingPesoBalanca')?.value || 0.0);
+        const banner = document.getElementById('bannerStatusPesoPacking');
+
+        if (!banner) return;
+
+        if (pesoBalanca <= 0) {
+            banner.className = 'alert alert-warning fs-xs py-2 px-3 mb-0 text-center';
+            banner.innerHTML = '<i class="fa-solid fa-triangle-exclamation me-1"></i> Coloque o pacote na balança para aferição de peso.';
+            return;
+        }
+
+        const difGramas = Math.round((pesoBalanca - pesoTeorico) * 1000);
+        if (Math.abs(difGramas) <= 120) {
+            banner.className = 'alert alert-success fs-xs py-2 px-3 mb-0 text-center';
+            banner.innerHTML = `<i class="fa-solid fa-circle-check me-1"></i> Peso Aferido OK! (${pesoBalanca.toFixed(3)} kg - Dif: ${difGramas > 0 ? '+' : ''}${difGramas}g)`;
+        } else {
+            banner.className = 'alert alert-danger fs-xs py-2 px-3 mb-0 text-center';
+            banner.innerHTML = `<i class="fa-solid fa-scale-unbalanced text-danger me-1"></i> <strong>Atenção: Divergência de Peso (${difGramas > 0 ? '+' : ''}${difGramas}g)</strong>. Verifique se falta produto ou foi colocado item a mais!`;
+        }
+    },
+
+    async validarItemPacking(codigoBipado, tipoLeitura = 'camera') {
+        if (!this.packingAtivo || !this.packingAtivo.pedido) return;
+
+        const confId = this.packingAtivo.pedido.id;
+        const banner = document.getElementById('scanStatusBannerPacking');
+
+        try {
+            const res = await fetch('api/packing.php?action=validar_item', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ conferencia_id: confId, codigo_bipado: codigoBipado })
+            });
+            const data = await res.json();
+
+            if (!data.success) {
+                window.soundEngine.playError();
+                this.toast(data.error || 'Produto incorreto para este pacote!', 'error');
+                if (banner) {
+                    banner.style.display = 'block';
+                    banner.className = 'alert alert-danger fs-xs py-2 px-3 mb-2 text-center';
+                    banner.innerHTML = `<i class="fa-solid fa-xmark"></i> ${data.error || 'Item não pertence ao pedido!'}`;
+                }
+                return;
+            }
+
+            window.soundEngine.playSuccess();
+            this.itensValidadosPacking.add(data.item.codigo_produto);
+            this.renderizarBancadaPacking(this.packingAtivo);
+
+            if (banner) {
+                banner.style.display = 'block';
+                banner.className = 'alert alert-success fs-xs py-2 px-3 mb-2 text-center';
+                banner.innerHTML = `<i class="fa-solid fa-check"></i> ${data.message || 'Item validado!'}`;
+            }
+
+            // Animar card
+            const card = document.getElementById(`packing-item-${data.item.codigo_produto}`);
+            if (card) {
+                card.classList.add('just-scanned');
+                setTimeout(() => card.classList.remove('just-scanned'), 700);
+            }
+        } catch (err) {
+            console.error('Erro na conferência de packing:', err);
+            this.toast('Erro ao validar item na bancada.', 'error');
+        }
+    },
+
+    biparPackingManual() {
+        const inp = document.getElementById('inputManualBarcodePacking');
+        const code = inp?.value.trim();
+        if (code) {
+            this.validarItemPacking(code, 'manual');
+            inp.value = '';
+        }
+    },
+
+    async startCameraPacking() {
+        const btnStart = document.getElementById('btnStartCamPacking');
+        const btnStop = document.getElementById('btnStopCamPacking');
+        const laser = document.getElementById('scanLaserPacking');
+
+        const started = await this.scanner.startCamera('readerPacking');
+        if (started) {
+            if (btnStart) btnStart.style.display = 'none';
+            if (btnStop) btnStop.style.display = 'block';
+            if (laser) laser.style.display = 'block';
+        } else {
+            this.toast('Não foi possível iniciar a câmera para o Packing Station.', 'error');
+        }
+    },
+
+    concluirEmbalagemPedido() {
+        if (!this.packingAtivo || !this.packingAtivo.pedido) return;
+
+        const ped = this.packingAtivo.pedido;
+        document.getElementById('lblModalPackingNumPed').textContent = `#${ped.numero_pedido}`;
+        document.getElementById('lblModalPackingCliente').textContent = ped.cliente || 'Cliente';
+
+        const pesoBalanca = document.getElementById('inputPackingPesoBalanca')?.value || '0.250';
+        document.getElementById('modalPackingPeso').value = pesoBalanca;
+
+        document.getElementById('modalFinalizarPacking').classList.add('active');
+    },
+
+    async salvarFinalizacaoPacking(e) {
+        if (e) e.preventDefault();
+        if (!this.packingAtivo || !this.packingAtivo.pedido) return;
+
+        const numPedido = this.packingAtivo.pedido.numero_pedido;
+        const pesoBalancaKg = parseFloat(document.getElementById('modalPackingPeso').value || 0.0);
+        const pesoTeoricoKg = parseFloat(this.packingAtivo.peso_teorico_kg || 0.0);
+        const volumesTotal = parseInt(document.getElementById('modalPackingVolumes').value || 1);
+        const observacoes = document.getElementById('modalPackingObs').value.trim();
+
+        try {
+            const res = await fetch('api/packing.php?action=concluir_embalagem', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    numero_pedido: numPedido,
+                    peso_balanca_kg: pesoBalancaKg,
+                    peso_teorico_kg: pesoTeoricoKg,
+                    volumes_total: volumesTotal,
+                    observacoes
+                })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                window.soundEngine.playOrderComplete();
+                this.toast(data.message || 'Pedido despachado com sucesso!', 'success');
+                this.fecharModais();
+                this.limparBancadaPacking();
+            } else {
+                this.toast(data.error || 'Erro ao finalizar embalagem.', 'error');
+            }
+        } catch (err) {
+            console.error('Erro ao salvar packing:', err);
+            this.toast('Erro ao concluir expedição.', 'error');
+        }
+    },
+
+    imprimirRomaneioPedidoAtual() {
+        if (!this.packingAtivo || !this.packingAtivo.pedido) return;
+        this.imprimirRomaneio(this.packingAtivo.pedido.numero_pedido);
+    },
+
 
     toast(mensagem, tipo = 'info') {
         const container = document.getElementById('toastContainer');

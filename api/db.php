@@ -299,6 +299,74 @@ function initSchema(PDO $pdo) {
             FOREIGN KEY (local_armazenagem_id) REFERENCES locais_armazenagem(id) ON DELETE SET NULL
         );
 
+        -- =====================================================================
+        -- FASE 3: SEPARAÇÃO EM ONDA / LOTE (WAVE PICKING) & PACKING STATION
+        -- =====================================================================
+        CREATE TABLE IF NOT EXISTS ondas_separacao (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            codigo_onda TEXT NOT NULL UNIQUE,
+            status TEXT DEFAULT 'pendente', -- pendente, em_separacao, separado, concluido, cancelado
+            total_pedidos INTEGER DEFAULT 0,
+            total_itens INTEGER DEFAULT 0,
+            total_unidades REAL DEFAULT 0,
+            unidades_coletadas REAL DEFAULT 0,
+            operador TEXT,
+            observacoes TEXT,
+            criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+            finalizado_em DATETIME
+        );
+
+        CREATE TABLE IF NOT EXISTS onda_pedidos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            onda_id INTEGER NOT NULL,
+            numero_pedido INTEGER NOT NULL,
+            cliente TEXT,
+            caixa_box_numero INTEGER DEFAULT 1, -- Número da colmeia/box (1..N)
+            status TEXT DEFAULT 'pendente', -- pendente, coletando, separado, embalado
+            FOREIGN KEY (onda_id) REFERENCES ondas_separacao(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS onda_itens_consolidados (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            onda_id INTEGER NOT NULL,
+            codigo_produto TEXT NOT NULL,
+            ean TEXT,
+            descricao TEXT,
+            local_id INTEGER,
+            quantidade_total REAL DEFAULT 0,
+            quantidade_coletada REAL DEFAULT 0,
+            status TEXT DEFAULT 'pendente', -- pendente, parcial, coletado
+            FOREIGN KEY (onda_id) REFERENCES ondas_separacao(id) ON DELETE CASCADE,
+            FOREIGN KEY (local_id) REFERENCES locais_armazenagem(id) ON DELETE SET NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS logs_bipagem_onda (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            onda_id INTEGER NOT NULL,
+            numero_pedido INTEGER,
+            codigo_bipado TEXT,
+            codigo_produto_identificado TEXT,
+            caixa_box_numero INTEGER,
+            tipo_leitura TEXT, -- camera, pistola, manual
+            operador TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (onda_id) REFERENCES ondas_separacao(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS packing_checkouts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            numero_pedido INTEGER NOT NULL,
+            cliente TEXT,
+            peso_teorico_kg REAL DEFAULT 0,
+            peso_balanca_kg REAL DEFAULT 0,
+            diferenca_peso_g REAL DEFAULT 0,
+            volumes_total INTEGER DEFAULT 1,
+            status_peso TEXT DEFAULT 'ok', -- ok, divergente
+            observacoes TEXT,
+            operador TEXT,
+            finalizado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
         CREATE INDEX IF NOT EXISTS idx_conferencias_num ON conferencias(numero_pedido);
         CREATE INDEX IF NOT EXISTS idx_conferencias_status ON conferencias(status);
         CREATE INDEX IF NOT EXISTS idx_itens_conferencia ON conferencia_itens(conferencia_id);
@@ -327,6 +395,13 @@ function initSchema(PDO $pdo) {
         CREATE INDEX IF NOT EXISTS idx_dev_ped ON devolucoes(numero_pedido_origem);
         CREATE INDEX IF NOT EXISTS idx_dev_itens_dev ON devolucao_itens(devolucao_id);
         CREATE INDEX IF NOT EXISTS idx_dev_itens_cod ON devolucao_itens(codigo_produto);
+        CREATE INDEX IF NOT EXISTS idx_ondas_cod ON ondas_separacao(codigo_onda);
+        CREATE INDEX IF NOT EXISTS idx_ondas_status ON ondas_separacao(status);
+        CREATE INDEX IF NOT EXISTS idx_onda_ped_onda ON onda_pedidos(onda_id);
+        CREATE INDEX IF NOT EXISTS idx_onda_ped_num ON onda_pedidos(numero_pedido);
+        CREATE INDEX IF NOT EXISTS idx_onda_itens_onda ON onda_itens_consolidados(onda_id);
+        CREATE INDEX IF NOT EXISTS idx_onda_itens_cod ON onda_itens_consolidados(codigo_produto);
+        CREATE INDEX IF NOT EXISTS idx_packing_ped ON packing_checkouts(numero_pedido);
     ");
 
     // Garantir migração da coluna permissoes se a tabela já existia antes
@@ -506,6 +581,41 @@ function getCatalogoPermissoes(): array {
             'categoria' => 'Devoluções',
             'icone' => 'fa-solid fa-microscope'
         ],
+        'onda_visualizar' => [
+            'id' => 'onda_visualizar',
+            'nome' => 'Visualizar Ondas de Separação',
+            'descricao' => 'Consultar listas de separação em lote / onda (Wave Picking).',
+            'categoria' => 'Wave Picking',
+            'icone' => 'fa-solid fa-layer-group'
+        ],
+        'onda_criar' => [
+            'id' => 'onda_criar',
+            'nome' => 'Criar Onda de Separação',
+            'descricao' => 'Agrupar múltiplos pedidos em lote e gerar rota unificada.',
+            'categoria' => 'Wave Picking',
+            'icone' => 'fa-solid fa-wand-magic-sparkles'
+        ],
+        'onda_separar' => [
+            'id' => 'onda_separar',
+            'nome' => 'Executar Separação de Onda',
+            'descricao' => 'Bipar itens da onda e distribuir nas caixas/colmeias (Put-to-Box).',
+            'categoria' => 'Wave Picking',
+            'icone' => 'fa-solid fa-barcode'
+        ],
+        'packing_visualizar' => [
+            'id' => 'packing_visualizar',
+            'nome' => 'Visualizar Packing Station',
+            'descricao' => 'Acessar a bancada de embalagem e checkout de pedidos.',
+            'categoria' => 'Packing Station',
+            'icone' => 'fa-solid fa-box-check'
+        ],
+        'packing_embalar' => [
+            'id' => 'packing_embalar',
+            'nome' => 'Conferir & Concluir Embalagem',
+            'descricao' => 'Realizar conferência final, validação de peso e despacho de volumes.',
+            'categoria' => 'Packing Station',
+            'icone' => 'fa-solid fa-check-double'
+        ],
         'eans_visualizar' => [
             'id' => 'eans_visualizar',
             'nome' => 'Visualizar De-Para EAN',
@@ -591,6 +701,11 @@ function getRoleDefaultPermissions(string $funcao): array {
                 'devolucao_visualizar',
                 'devolucao_criar',
                 'devolucao_inspecionar',
+                'onda_visualizar',
+                'onda_criar',
+                'onda_separar',
+                'packing_visualizar',
+                'packing_embalar',
                 'eans_visualizar',
                 'eans_gerenciar',
                 'usuarios_visualizar',
@@ -614,6 +729,10 @@ function getRoleDefaultPermissions(string $funcao): array {
                 'inventario_contar',
                 'devolucao_visualizar',
                 'devolucao_inspecionar',
+                'onda_visualizar',
+                'onda_separar',
+                'packing_visualizar',
+                'packing_embalar',
                 'eans_visualizar'
             ];
 
@@ -631,7 +750,11 @@ function getRoleDefaultPermissions(string $funcao): array {
                 'recebimento_conferir',
                 'inventario_visualizar',
                 'inventario_contar',
-                'devolucao_visualizar'
+                'devolucao_visualizar',
+                'onda_visualizar',
+                'onda_separar',
+                'packing_visualizar',
+                'packing_embalar'
             ];
     }
 }
