@@ -683,7 +683,28 @@ const App = {
         document.getElementById('scanLaser').style.display = 'block';
 
         this.camerasList = await this.scanner.getCameras();
-        const camId = this.camerasList.length > 0 ? this.camerasList[this.currentCameraIndex % this.camerasList.length].id : null;
+        
+        let camId = null;
+        if (this.camerasList.length > 0) {
+            // Se for a primeira inicialização da câmera, tenta detectar a câmera traseira automaticamente
+            if (this.currentCameraIndex === 0) {
+                const backKeywords = ['traseira', 'traseiro', 'back', 'rear', 'environment', 'principal', 'main'];
+                const foundIndex = this.camerasList.findIndex(cam => {
+                    const label = (cam.label || '').toLowerCase();
+                    return backKeywords.some(keyword => label.includes(keyword));
+                });
+
+                if (foundIndex !== -1) {
+                    this.currentCameraIndex = foundIndex;
+                    camId = this.camerasList[this.currentCameraIndex].id;
+                } else {
+                    // Fallback para null (facingMode: environment) se não houver correspondência ou se as labels estiverem vazias
+                    camId = null;
+                }
+            } else {
+                camId = this.camerasList[this.currentCameraIndex % this.camerasList.length].id;
+            }
+        }
 
         const ok = await this.scanner.startCamera('reader', camId);
         if (!ok) {
