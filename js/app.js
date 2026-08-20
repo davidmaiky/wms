@@ -123,6 +123,7 @@ const App = {
     },
 
     carregarDadosIniciais() {
+        this.setDefaultDateFilter();
         if (this.hasPermission('config_visualizar')) {
             this.carregarConfiguracoes();
         }
@@ -293,7 +294,7 @@ const App = {
 
         const params = new URLSearchParams({
             action: 'list',
-            pageSize: '40'
+            pageSize: '100'
         });
 
         if (codigo) params.append('codigo', codigo);
@@ -319,6 +320,16 @@ const App = {
             }
 
             this.pedidosCache = data.data || [];
+            this.pedidosCache.sort((a, b) => {
+                const idA = parseInt(a.Codigo || a.ID || a.Id || 0, 10);
+                const idB = parseInt(b.Codigo || b.ID || b.Id || 0, 10);
+                if (idA === idB) {
+                    const dateA = new Date(a.Data || 0).getTime();
+                    const dateB = new Date(b.Data || 0).getTime();
+                    return dateB - dateA;
+                }
+                return idB - idA;
+            });
             this.renderPedidosTable(this.pedidosCache);
         } catch (err) {
             tbody.innerHTML = `
@@ -448,8 +459,23 @@ const App = {
         tbody.innerHTML = html;
     },
 
+    setDefaultDateFilter() {
+        const inputIni = document.getElementById('filtroDataInicial');
+        const inputFim = document.getElementById('filtroDataFinal');
+        if (inputIni && !inputIni.value) {
+            const d = new Date();
+            d.setDate(d.getDate() - 30);
+            inputIni.value = d.toISOString().split('T')[0];
+        }
+        if (inputFim && !inputFim.value) {
+            const today = new Date().toISOString().split('T')[0];
+            inputFim.value = today;
+        }
+    },
+
     limparFiltros() {
         document.getElementById('formFiltroPedidos').reset();
+        this.setDefaultDateFilter();
         this.buscarPedidos();
     },
 

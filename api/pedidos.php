@@ -17,14 +17,23 @@ try {
             $status = $_GET['status'] ?? '';
             $dataInicial = $_GET['dataInicial'] ?? '';
             $dataFinal = $_GET['dataFinal'] ?? '';
-            $pageSize = isset($_GET['pageSize']) ? (int)$_GET['pageSize'] : 50;
+            $pageSize = isset($_GET['pageSize']) ? (int)$_GET['pageSize'] : 100;
             $skip = isset($_GET['skip']) ? (int)$_GET['skip'] : 0;
 
             $filters = [
                 'pageSize' => $pageSize,
                 'skip' => $skip
             ];
-            if (!empty($codigo)) $filters['codigo'] = $codigo;
+
+            if (!empty($codigo)) {
+                $filters['codigo'] = $codigo;
+            } else {
+                // Se não informou código específico e nem data inicial, busca os pedidos dos últimos 30 dias
+                if (empty($dataInicial)) {
+                    $dataInicial = date('Y-m-d', strtotime('-30 days'));
+                }
+            }
+
             if (!empty($cliente)) $filters['cliente'] = $cliente;
             if (!empty($status)) $filters['status'] = $status;
             if (!empty($dataInicial)) $filters['dataInicial'] = $dataInicial;
@@ -37,6 +46,18 @@ try {
             }
 
             $pedidos = is_array($res['data']) ? $res['data'] : [];
+
+            // Ordenar pedidos por ID/Código decrescente (mais recentes primeiro)
+            usort($pedidos, function($a, $b) {
+                $idA = (int)($a['Codigo'] ?? $a['ID'] ?? $a['Id'] ?? 0);
+                $idB = (int)($b['Codigo'] ?? $b['ID'] ?? $b['Id'] ?? 0);
+                if ($idA === $idB) {
+                    $dateA = strtotime($a['Data'] ?? '') ?: 0;
+                    $dateB = strtotime($b['Data'] ?? '') ?: 0;
+                    return $dateB <=> $dateA;
+                }
+                return $idB <=> $idA;
+            });
 
             // Obter status de conferência local para cada pedido retornado
             if (!empty($pedidos)) {
