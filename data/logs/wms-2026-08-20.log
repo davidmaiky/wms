@@ -1,2 +1,8 @@
 [2026-08-20 15:28:26] [INFO] [User: anonimo] [IP: 10.11.0.24] PIN do usuário 'david@primepro.com.br' migrado automaticamente para hash BCrypt.
 [2026-08-20 15:28:26] [INFO] [User: anonimo] [IP: 10.11.0.24] Login realizado com sucesso: 'david@primepro.com.br'
+[2026-08-20 15:43:51] [WARNING] [User: anonimo] [IP: 10.11.0.24] Tentativa de login para e-mail inexistente: 'estoque@visathaie.com.br'
+[2026-08-20 15:43:58] [WARNING] [User: anonimo] [IP: 10.11.0.24] Tentativa de login para e-mail inexistente: 'estoque@visathaie.com.br'
+[2026-08-20 15:43:59] [WARNING] [User: anonimo] [IP: 10.11.0.24] Tentativa de login para e-mail inexistente: 'estoque@visathaie.com.br'
+[2026-08-20 15:44:12] [INFO] [User: anonimo] [IP: 10.11.0.24] PIN do usuário 'estoque@visathair.com.br' migrado automaticamente para hash BCrypt.
+[2026-08-20 15:44:12] [INFO] [User: anonimo] [IP: 10.11.0.24] Login realizado com sucesso: 'estoque@visathair.com.br'
+[2026-08-20 15:45:40] [INFO] [User: anonimo] [IP: 10.11.0.24] Login realizado com sucesso: 'estoque@visathair.com.br'

@@ -1,12 +1,12 @@
 // Service Worker para WMS Prime
-const CACHE_NAME = 'wms-prime-v1.1';
+const CACHE_NAME = 'wms-prime-v2.0';
 const STATIC_ASSETS = [
     './',
     './index.html',
-    './css/style.css',
-    './js/app.js',
-    './js/audio.js',
-    './js/scanner.js',
+    './css/style.css?v=2.0',
+    './js/app.js?v=2.0',
+    './js/audio.js?v=2.0',
+    './js/scanner.js?v=2.0',
     './js/html5-qrcode.min.js',
     './manifest.json',
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
