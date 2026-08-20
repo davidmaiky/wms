@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#090d16">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -22,6 +24,7 @@
     <!-- Local HTML5-QRCode Scanner -->
     <script src="js/html5-qrcode.min.js"></script>
 </head>
+
 <body>
 
     <!-- App Header -->
@@ -32,7 +35,8 @@
                     <i class="fa-solid fa-boxes-packing"></i>
                 </div>
                 <div class="brand-title">
-                    <h1>WMS PRIME <span id="networkStatusChip" class="brand-status-chip"><span class="status-dot"></span> Online</span></h1>
+                    <h1>WMS PRIME <span id="networkStatusChip" class="brand-status-chip"><span
+                                class="status-dot"></span> Online</span></h1>
                     <span>Conferência & Separação SIGE Cloud</span>
                 </div>
             </div>
@@ -42,7 +46,8 @@
                 <button class="nav-btn active" data-view="pedidos" onclick="App.navigate('pedidos')">
                     <i class="fa-solid fa-clipboard-list"></i> Pedidos
                 </button>
-                <button class="nav-btn" data-view="conferencia" id="btnNavConferencia" onclick="App.navigate('conferencia')">
+                <button class="nav-btn" data-view="conferencia" id="btnNavConferencia"
+                    onclick="App.navigate('conferencia')">
                     <i class="fa-solid fa-barcode"></i> Separação
                 </button>
                 <button class="nav-btn" data-view="historico" onclick="App.navigate('historico')">
@@ -65,7 +70,8 @@
                     <div class="operator-avatar-mini" id="avatarMiniHeader">D</div>
                     <span><strong id="lblOperadorHeader">David</strong></span>
                 </div>
-                <button class="btn btn-secondary btn-icon" id="btnToggleSound" onclick="App.toggleSound()" title="Ativar/Desativar Sons">
+                <button class="btn btn-secondary btn-icon" id="btnToggleSound" onclick="App.toggleSound()"
+                    title="Ativar/Desativar Sons">
                     <i class="fa-solid fa-volume-high" id="iconSound"></i>
                 </button>
                 <button class="btn btn-secondary btn-icon" onclick="App.toggleFullscreen()" title="Tela Cheia (F11)">
@@ -172,11 +178,20 @@
             <div class="filter-card">
                 <!-- Quick Filter Chips -->
                 <div class="quick-filter-chips">
-                    <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-right: 0.35rem;"><i class="fa-solid fa-bolt"></i> Filtro:</span>
-                    <button type="button" class="filter-chip active" data-status-filter="" onclick="App.aplicarFiltroRapido('')">Todos</button>
-                    <button type="button" class="filter-chip" data-status-filter="Pedido Aprovado" onclick="App.aplicarFiltroRapido('Pedido Aprovado')"><i class="fa-solid fa-check"></i> Aprovados</button>
-                    <button type="button" class="filter-chip" data-status-filter="Pedido Faturado" onclick="App.aplicarFiltroRapido('Pedido Faturado')"><i class="fa-solid fa-truck"></i> Faturados</button>
-                    <button type="button" class="filter-chip" data-status-filter="Orçamento" onclick="App.aplicarFiltroRapido('Orçamento')"><i class="fa-regular fa-file-lines"></i> Orçamentos</button>
+                    <span
+                        style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-right: 0.35rem;"><i
+                            class="fa-solid fa-bolt"></i> Filtro:</span>
+                    <button type="button" class="filter-chip active" data-status-filter=""
+                        onclick="App.aplicarFiltroRapido('')">Todos</button>
+                    <button type="button" class="filter-chip" data-status-filter="Pedido Aprovado"
+                        onclick="App.aplicarFiltroRapido('Pedido Aprovado')"><i class="fa-solid fa-check"></i>
+                        Aprovados</button>
+                    <button type="button" class="filter-chip" data-status-filter="Pedido Faturado"
+                        onclick="App.aplicarFiltroRapido('Pedido Faturado')"><i class="fa-solid fa-truck"></i>
+                        Faturados</button>
+                    <button type="button" class="filter-chip" data-status-filter="Orçamento"
+                        onclick="App.aplicarFiltroRapido('Orçamento')"><i class="fa-regular fa-file-lines"></i>
+                        Orçamentos</button>
                 </div>
 
                 <form id="formFiltroPedidos" onsubmit="App.buscarPedidos(event)">
@@ -216,7 +231,8 @@
                             <button type="submit" class="btn btn-primary" id="btnBuscarPedidos">
                                 <i class="fa-solid fa-magnifying-glass"></i> Buscar
                             </button>
-                            <button type="button" class="btn btn-secondary" onclick="App.limparFiltros()" title="Limpar Filtros">
+                            <button type="button" class="btn btn-secondary" onclick="App.limparFiltros()"
+                                title="Limpar Filtros">
                                 <i class="fa-solid fa-rotate-left"></i>
                             </button>
                         </div>
@@ -242,7 +258,8 @@
                     <tbody id="pedidosTableBody">
                         <tr>
                             <td colspan="8" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
-                                <i class="fa-solid fa-spinner fa-spin fa-2x"></i><br><br>Carregando pedidos do SIGE Cloud...
+                                <i class="fa-solid fa-spinner fa-spin fa-2x"></i><br><br>Carregando pedidos do SIGE
+                                Cloud...
                             </td>
                         </tr>
                     </tbody>
@@ -258,7 +275,8 @@
             <div id="conferenciaVazia" style="display: none; text-align: center; padding: 4rem 1rem;">
                 <i class="fa-solid fa-barcode fa-4x" style="color: var(--text-muted); margin-bottom: 1rem;"></i>
                 <h2>Nenhuma Conferência em Andamento</h2>
-                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Selecione um pedido na listagem para iniciar a separação.</p>
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Selecione um pedido na listagem para
+                    iniciar a separação.</p>
                 <button class="btn btn-primary btn-lg" onclick="App.navigate('pedidos')">
                     <i class="fa-solid fa-arrow-left"></i> Ir para Lista de Pedidos
                 </button>
@@ -272,10 +290,12 @@
                         <div class="scanner-header">
                             <h3><i class="fa-solid fa-camera"></i> Leitor Câmera</h3>
                             <div style="display: flex; gap: 0.35rem;">
-                                <button class="btn btn-secondary btn-sm" id="btnTorch" onclick="App.toggleTorch()" title="Lanterna/Flash">
+                                <button class="btn btn-secondary btn-sm" id="btnTorch" onclick="App.toggleTorch()"
+                                    title="Lanterna/Flash">
                                     <i class="fa-solid fa-bolt"></i>
                                 </button>
-                                <button class="btn btn-secondary btn-sm" id="btnSwitchCamera" onclick="App.switchCamera()" title="Alternar Câmera">
+                                <button class="btn btn-secondary btn-sm" id="btnSwitchCamera"
+                                    onclick="App.switchCamera()" title="Alternar Câmera">
                                     <i class="fa-solid fa-camera-rotate"></i>
                                 </button>
                             </div>
@@ -287,10 +307,12 @@
                         </div>
 
                         <div class="scanner-controls">
-                            <button class="btn btn-success btn-sm" id="btnStartCam" style="width: 100%;" onclick="App.startCamera()">
+                            <button class="btn btn-success btn-sm" id="btnStartCam" style="width: 100%;"
+                                onclick="App.startCamera()">
                                 <i class="fa-solid fa-play"></i> Ativar Câmera
                             </button>
-                            <button class="btn btn-danger btn-sm" id="btnStopCam" style="width: 100%; display: none;" onclick="App.stopCamera()">
+                            <button class="btn btn-danger btn-sm" id="btnStopCam" style="width: 100%; display: none;"
+                                onclick="App.stopCamera()">
                                 <i class="fa-solid fa-stop"></i> Parar Câmera
                             </button>
                         </div>
@@ -303,14 +325,19 @@
                                 <i class="fa-solid fa-barcode"></i> Bipar / Digitar Código (SKU ou EAN)
                             </label>
                             <div style="display: flex; gap: 0.5rem;">
-                                <input type="text" id="inputManualBarcode" class="input-control font-mono" placeholder="Bipe aqui ou digite..." autofocus>
+                                <input type="text" id="inputManualBarcode" class="input-control font-mono"
+                                    placeholder="Bipe aqui ou digite..." autofocus>
                                 <button class="btn btn-primary" onclick="App.biparManual()" title="Confirmar Bipagem">
                                     <i class="fa-solid fa-check"></i>
                                 </button>
                             </div>
-                            <div id="scanStatusBanner" style="display: none; padding: 0.6rem 0.85rem; border-radius: var(--radius-md); font-size: 0.82rem; font-weight: 600; text-align: center; margin-top: 0.5rem;"></div>
-                            <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem; display: flex; align-items: center; gap: 0.35rem;">
-                                <i class="fa-solid fa-circle-info"></i> Pistolas USB/Bluetooth e leitores de código de barras são detectados automaticamente.
+                            <div id="scanStatusBanner"
+                                style="display: none; padding: 0.6rem 0.85rem; border-radius: var(--radius-md); font-size: 0.82rem; font-weight: 600; text-align: center; margin-top: 0.5rem;">
+                            </div>
+                            <span
+                                style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem; display: flex; align-items: center; gap: 0.35rem;">
+                                <i class="fa-solid fa-circle-info"></i> Pistolas USB/Bluetooth e leitores de código de
+                                barras são detectados automaticamente.
                             </span>
                         </div>
                     </div>
@@ -323,8 +350,11 @@
                                 <i class="fa-solid fa-plus"></i> Novo Volume
                             </button>
                         </div>
-                        <div id="listaVolumesContainer" style="padding: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; max-height: 180px; overflow-y: auto;">
-                            <span style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding: 0.5rem;">Nenhum volume embalado ainda.</span>
+                        <div id="listaVolumesContainer"
+                            style="padding: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; max-height: 180px; overflow-y: auto;">
+                            <span
+                                style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding: 0.5rem;">Nenhum
+                                volume embalado ainda.</span>
                         </div>
                     </div>
                 </aside>
@@ -343,16 +373,21 @@
                             </div>
 
                             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                                <button class="btn btn-secondary" onclick="App.imprimirRomaneio()" title="Imprimir Romaneio de Separação">
+                                <button class="btn btn-secondary" onclick="App.imprimirRomaneio()"
+                                    title="Imprimir Romaneio de Separação">
                                     <i class="fa-solid fa-print"></i> Romaneio
                                 </button>
-                                <button class="btn btn-secondary" onclick="App.reiniciarConferencia()" title="Zerar contagem">
+                                <button class="btn btn-secondary" onclick="App.reiniciarConferencia()"
+                                    title="Zerar contagem">
                                     <i class="fa-solid fa-rotate-left"></i> Zerar
                                 </button>
-                                <button class="btn btn-danger" id="btnCancelarConferencia" onclick="App.abrirModalCancelarConferencia()" title="Cancelar Separação deste Pedido">
+                                <button class="btn btn-danger" id="btnCancelarConferencia"
+                                    onclick="App.abrirModalCancelarConferencia()"
+                                    title="Cancelar Separação deste Pedido">
                                     <i class="fa-solid fa-ban"></i> Cancelar
                                 </button>
-                                <button class="btn btn-success" id="btnFinalizarConferencia" onclick="App.finalizarConferencia()">
+                                <button class="btn btn-success" id="btnFinalizarConferencia"
+                                    onclick="App.finalizarConferencia()">
                                     <i class="fa-solid fa-check-double"></i> Finalizar Pedido
                                 </button>
                             </div>
@@ -361,7 +396,8 @@
                         <!-- Barra de Progresso Total -->
                         <div class="progress-container">
                             <div class="progress-labels">
-                                <span>Progresso da Conferência: <strong id="lblQtdConferidaTotal">0</strong> / <span id="lblQtdEsperadaTotal">0</span> unidades</span>
+                                <span>Progresso da Conferência: <strong id="lblQtdConferidaTotal">0</strong> / <span
+                                        id="lblQtdEsperadaTotal">0</span> unidades</span>
                                 <span id="lblPorcentagemProgresso" style="color: var(--color-success);">0%</span>
                             </div>
                             <div class="progress-bar-track">
@@ -386,8 +422,10 @@
             <div class="filter-card">
                 <div class="filter-grid" style="grid-template-columns: 1fr 200px auto;">
                     <div class="form-group">
-                        <label for="filtroHistoricoBusca"><i class="fa-solid fa-magnifying-glass"></i> Buscar no Histórico</label>
-                        <input type="text" id="filtroHistoricoBusca" class="input-control" placeholder="Nº Pedido, Cliente ou Operador..." oninput="App.carregarHistorico()">
+                        <label for="filtroHistoricoBusca"><i class="fa-solid fa-magnifying-glass"></i> Buscar no
+                            Histórico</label>
+                        <input type="text" id="filtroHistoricoBusca" class="input-control"
+                            placeholder="Nº Pedido, Cliente ou Operador..." oninput="App.carregarHistorico()">
                     </div>
 
                     <div class="form-group">
@@ -437,7 +475,8 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
                 <div>
                     <h2>Mapeamento de Códigos de Barras (EAN ⇄ SKU)</h2>
-                    <p style="color: var(--text-secondary); font-size: 0.875rem;">Associe códigos de barras de fábrica aos códigos de produtos (SKU) do SIGE Cloud.</p>
+                    <p style="color: var(--text-secondary); font-size: 0.875rem;">Associe códigos de barras de fábrica
+                        aos códigos de produtos (SKU) do SIGE Cloud.</p>
                 </div>
                 <button class="btn btn-primary" onclick="App.modalNovoEan()">
                     <i class="fa-solid fa-plus"></i> Novo Vínculo EAN
@@ -474,7 +513,8 @@
                 <div class="modal-body">
                     <form id="formConfig" onsubmit="App.salvarConfiguracoes(event)">
                         <div class="form-group" style="margin-bottom: 1rem;">
-                            <label for="cfgToken"><i class="fa-solid fa-key"></i> Token de Autorização SIGE Cloud</label>
+                            <label for="cfgToken"><i class="fa-solid fa-key"></i> Token de Autorização SIGE
+                                Cloud</label>
                             <input type="text" id="cfgToken" class="input-control font-mono" required>
                         </div>
 
@@ -491,11 +531,13 @@
 
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
                             <div class="form-group">
-                                <label for="cfgOperadorPadrao"><i class="fa-solid fa-user"></i> Nome do Operador Padrão</label>
+                                <label for="cfgOperadorPadrao"><i class="fa-solid fa-user"></i> Nome do Operador
+                                    Padrão</label>
                                 <input type="text" id="cfgOperadorPadrao" class="input-control" required>
                             </div>
                             <div class="form-group">
-                                <label for="cfgModoCego"><i class="fa-solid fa-eye-slash"></i> Modo Conferência Cega</label>
+                                <label for="cfgModoCego"><i class="fa-solid fa-eye-slash"></i> Modo Conferência
+                                    Cega</label>
                                 <select id="cfgModoCego" class="select-control">
                                     <option value="0">Desativado (Mostra quantidades esperadas)</option>
                                     <option value="1">Ativado (Oculta quantidades até concluir)</option>
@@ -520,7 +562,9 @@
                 <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
                     <h3><i class="fa-solid fa-database"></i> Manutenção & Backup do Banco de Dados</h3>
                     <div style="display: flex; gap: 0.5rem;">
-                        <button type="button" class="btn btn-sm btn-secondary" onclick="window.open('api/health.php?check_sige=1', '_blank')" title="Ver JSON de Diagnóstico">
+                        <button type="button" class="btn btn-sm btn-secondary"
+                            onclick="window.open('api/health.php?check_sige=1', '_blank')"
+                            title="Ver JSON de Diagnóstico">
                             <i class="fa-solid fa-heart-pulse"></i> Diagnóstico de Saúde
                         </button>
                         <button type="button" class="btn btn-sm btn-primary" onclick="App.gerarBackupDb()">
@@ -530,12 +574,18 @@
                 </div>
                 <div class="modal-body">
                     <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
-                        O backup online utiliza o comando atômico <code>VACUUM INTO</code> do SQLite para criar cópias snapshot consistentes do banco de dados em <code>data/backups/</code> sem interromper as operações em andamento.
+                        O backup online utiliza o comando atômico <code>VACUUM INTO</code> do SQLite para criar cópias
+                        snapshot consistentes do banco de dados em <code>data/backups/</code> sem interromper as
+                        operações em andamento.
                     </p>
-                    <div id="listaBackupsContainer" style="background: rgba(15, 23, 42, 0.4); border-radius: var(--radius-md); padding: 1rem; border: 1px solid var(--border-color);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                            <strong style="font-size: 0.85rem; color: var(--text-primary);"><i class="fa-solid fa-clock-rotate-left"></i> Histórico de Backups Locais</strong>
-                            <button type="button" class="btn btn-sm btn-link" onclick="App.carregarListaBackups()" style="font-size: 0.8rem;">
+                    <div id="listaBackupsContainer"
+                        style="background: rgba(15, 23, 42, 0.4); border-radius: var(--radius-md); padding: 1rem; border: 1px solid var(--border-color);">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <strong style="font-size: 0.85rem; color: var(--text-primary);"><i
+                                    class="fa-solid fa-clock-rotate-left"></i> Histórico de Backups Locais</strong>
+                            <button type="button" class="btn btn-sm btn-link" onclick="App.carregarListaBackups()"
+                                style="font-size: 0.8rem;">
                                 <i class="fa-solid fa-rotate"></i> Atualizar
                             </button>
                         </div>
@@ -599,8 +649,10 @@
             <div class="filter-card">
                 <div class="filter-grid" style="grid-template-columns: 1fr 180px 160px auto auto;">
                     <div class="form-group">
-                        <label for="filtroUsuariosBusca"><i class="fa-solid fa-magnifying-glass"></i> Buscar Usuário</label>
-                        <input type="text" id="filtroUsuariosBusca" class="input-control" placeholder="Nome ou e-mail..." oninput="App.carregarUsuarios()">
+                        <label for="filtroUsuariosBusca"><i class="fa-solid fa-magnifying-glass"></i> Buscar
+                            Usuário</label>
+                        <input type="text" id="filtroUsuariosBusca" class="input-control"
+                            placeholder="Nome ou e-mail..." oninput="App.carregarUsuarios()">
                     </div>
 
                     <div class="form-group">
@@ -669,21 +721,25 @@
         <div class="modal-card">
             <div class="modal-header">
                 <h3><i class="fa-solid fa-box"></i> Adicionar Volume / Embalagem</h3>
-                <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
+                <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()"><i
+                        class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="modal-body">
                 <form id="formVolume" onsubmit="App.salvarVolume(event)">
                     <div class="form-group" style="margin-bottom: 1rem;">
                         <label for="volPeso"><i class="fa-solid fa-weight-hanging"></i> Peso Total da Caixa (KG)</label>
-                        <input type="number" step="0.01" id="volPeso" class="input-control" placeholder="Ex: 2.45" required autofocus>
+                        <input type="number" step="0.01" id="volPeso" class="input-control" placeholder="Ex: 2.45"
+                            required autofocus>
                     </div>
                     <div class="form-group" style="margin-bottom: 1.5rem;">
-                        <label for="volDimensoes"><i class="fa-solid fa-ruler-combined"></i> Dimensões (C x L x A cm - Opcional)</label>
+                        <label for="volDimensoes"><i class="fa-solid fa-ruler-combined"></i> Dimensões (C x L x A cm -
+                            Opcional)</label>
                         <input type="text" id="volDimensoes" class="input-control" placeholder="Ex: 30x20x15">
                     </div>
                     <div class="modal-footer" style="padding: 0; background: none; border: none;">
                         <button type="button" class="btn btn-secondary" onclick="App.fecharModais()">Cancelar</button>
-                        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Gerar Volume & Etiqueta</button>
+                        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Gerar Volume &
+                            Etiqueta</button>
                     </div>
                 </form>
             </div>
@@ -695,25 +751,31 @@
         <div class="modal-card">
             <div class="modal-header">
                 <h3><i class="fa-solid fa-tag"></i> Vincular Código de Barras (EAN) ao SKU</h3>
-                <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
+                <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()"><i
+                        class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="modal-body">
                 <form id="formEan" onsubmit="App.salvarNovoEan(event)">
                     <div class="form-group" style="margin-bottom: 1rem;">
                         <label for="eanSku"><i class="fa-solid fa-hashtag"></i> Código do Produto no SIGE (SKU)</label>
-                        <input type="text" id="eanSku" class="input-control font-mono" placeholder="Ex: RP00001" required autofocus>
+                        <input type="text" id="eanSku" class="input-control font-mono" placeholder="Ex: RP00001"
+                            required autofocus>
                     </div>
                     <div class="form-group" style="margin-bottom: 1rem;">
-                        <label for="eanCodigoBarra"><i class="fa-solid fa-barcode"></i> Código de Barras / EAN-13</label>
-                        <input type="text" id="eanCodigoBarra" class="input-control font-mono" placeholder="Ex: 7898561230012" required>
+                        <label for="eanCodigoBarra"><i class="fa-solid fa-barcode"></i> Código de Barras /
+                            EAN-13</label>
+                        <input type="text" id="eanCodigoBarra" class="input-control font-mono"
+                            placeholder="Ex: 7898561230012" required>
                     </div>
                     <div class="form-group" style="margin-bottom: 1.5rem;">
-                        <label for="eanDescricao"><i class="fa-solid fa-font"></i> Descrição do Produto (Opcional)</label>
+                        <label for="eanDescricao"><i class="fa-solid fa-font"></i> Descrição do Produto
+                            (Opcional)</label>
                         <input type="text" id="eanDescricao" class="input-control" placeholder="Nome do produto...">
                     </div>
                     <div class="modal-footer" style="padding: 0; background: none; border: none;">
                         <button type="button" class="btn btn-secondary" onclick="App.fecharModais()">Cancelar</button>
-                        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Salvar Vínculo</button>
+                        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Salvar
+                            Vínculo</button>
                     </div>
                 </form>
             </div>
@@ -726,20 +788,23 @@
         <div class="modal-card" style="max-width: 540px;">
             <div class="modal-header">
                 <h3 id="modalUsuarioTitulo"><i class="fa-solid fa-user-plus"></i> Novo Usuário</h3>
-                <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
+                <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()"><i
+                        class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="modal-body">
                 <form id="formUsuario" onsubmit="App.salvarUsuario(event)">
                     <input type="hidden" id="usuarioId" value="">
-                    
+
                     <div class="form-group" style="margin-bottom: 1rem;">
                         <label for="usuarioNome"><i class="fa-solid fa-user"></i> Nome Completo</label>
-                        <input type="text" id="usuarioNome" class="input-control" placeholder="Ex: David Silva" required autofocus>
+                        <input type="text" id="usuarioNome" class="input-control" placeholder="Ex: David Silva" required
+                            autofocus>
                     </div>
 
                     <div class="form-group" style="margin-bottom: 1rem;">
                         <label for="usuarioEmail"><i class="fa-solid fa-envelope"></i> E-mail de Acesso</label>
-                        <input type="email" id="usuarioEmail" class="input-control" placeholder="exemplo@primepro.com.br" required>
+                        <input type="email" id="usuarioEmail" class="input-control"
+                            placeholder="exemplo@primepro.com.br" required>
                     </div>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
@@ -764,24 +829,33 @@
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
                         <div class="form-group">
                             <label for="usuarioPin"><i class="fa-solid fa-key"></i> Senha / PIN de Acesso</label>
-                            <input type="password" id="usuarioPin" class="input-control font-mono" placeholder="Deixe em branco para manter" maxlength="12">
+                            <input type="password" id="usuarioPin" class="input-control font-mono"
+                                placeholder="Deixe em branco para manter" maxlength="12">
                         </div>
                         <div class="form-group">
                             <label><i class="fa-solid fa-palette"></i> Cor do Avatar</label>
                             <input type="hidden" id="usuarioAvatarCor" value="#3b82f6">
                             <div class="avatar-color-swatches" id="usuarioAvatarColorSwatches">
-                                <div class="color-swatch-opt active" style="background: #3b82f6;" data-color="#3b82f6" onclick="App.selecionarCorAvatar('#3b82f6')"></div>
-                                <div class="color-swatch-opt" style="background: #10b981;" data-color="#10b981" onclick="App.selecionarCorAvatar('#10b981')"></div>
-                                <div class="color-swatch-opt" style="background: #8b5cf6;" data-color="#8b5cf6" onclick="App.selecionarCorAvatar('#8b5cf6')"></div>
-                                <div class="color-swatch-opt" style="background: #06b6d4;" data-color="#06b6d4" onclick="App.selecionarCorAvatar('#06b6d4')"></div>
-                                <div class="color-swatch-opt" style="background: #f59e0b;" data-color="#f59e0b" onclick="App.selecionarCorAvatar('#f59e0b')"></div>
-                                <div class="color-swatch-opt" style="background: #ec4899;" data-color="#ec4899" onclick="App.selecionarCorAvatar('#ec4899')"></div>
-                                <div class="color-swatch-opt" style="background: #64748b;" data-color="#64748b" onclick="App.selecionarCorAvatar('#64748b')"></div>
+                                <div class="color-swatch-opt active" style="background: #3b82f6;" data-color="#3b82f6"
+                                    onclick="App.selecionarCorAvatar('#3b82f6')"></div>
+                                <div class="color-swatch-opt" style="background: #10b981;" data-color="#10b981"
+                                    onclick="App.selecionarCorAvatar('#10b981')"></div>
+                                <div class="color-swatch-opt" style="background: #8b5cf6;" data-color="#8b5cf6"
+                                    onclick="App.selecionarCorAvatar('#8b5cf6')"></div>
+                                <div class="color-swatch-opt" style="background: #06b6d4;" data-color="#06b6d4"
+                                    onclick="App.selecionarCorAvatar('#06b6d4')"></div>
+                                <div class="color-swatch-opt" style="background: #f59e0b;" data-color="#f59e0b"
+                                    onclick="App.selecionarCorAvatar('#f59e0b')"></div>
+                                <div class="color-swatch-opt" style="background: #ec4899;" data-color="#ec4899"
+                                    onclick="App.selecionarCorAvatar('#ec4899')"></div>
+                                <div class="color-swatch-opt" style="background: #64748b;" data-color="#64748b"
+                                    onclick="App.selecionarCorAvatar('#64748b')"></div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="modal-footer" style="padding: 0; background: none; border: none; display: flex; gap: 0.75rem; justify-content: flex-end;">
+                    <div class="modal-footer"
+                        style="padding: 0; background: none; border: none; display: flex; gap: 0.75rem; justify-content: flex-end;">
                         <button type="button" class="btn btn-secondary" onclick="App.fecharModais()">Cancelar</button>
                         <button type="submit" class="btn btn-primary" id="btnSalvarUsuario">
                             <i class="fa-solid fa-floppy-disk"></i> Salvar Usuário
@@ -794,23 +868,25 @@
 
     <!-- Modal Gerenciamento de Permissões de Usuário -->
     <div class="modal-overlay" id="modalPermissoesUsuario">
-        <div class="modal-card modal-permissoes-card" style="max-width: 780px; width: 95%; max-height: 92vh; display: flex; flex-direction: column;">
+        <div class="modal-card modal-permissoes-card"
+            style="max-width: 780px; width: 95%; max-height: 92vh; display: flex; flex-direction: column;">
             <div class="modal-header">
                 <div>
                     <h3 style="display: flex; align-items: center; gap: 0.5rem;">
-                        <i class="fa-solid fa-shield-halved text-primary"></i> 
+                        <i class="fa-solid fa-shield-halved text-primary"></i>
                         <span>Permissões de Acesso</span>
                     </h3>
                     <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0.2rem;">
                         Configure o que este usuário pode visualizar e executar no sistema WMS.
                     </p>
                 </div>
-                <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
+                <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()"><i
+                        class="fa-solid fa-xmark"></i></button>
             </div>
 
             <div class="modal-body" style="padding: 1.25rem; overflow-y: auto; flex: 1;">
                 <input type="hidden" id="permUserId" value="">
-                
+
                 <!-- Profile Header Card -->
                 <div class="perm-user-banner" id="permUserBanner">
                     <div class="perm-avatar" id="permUserAvatar">D</div>
@@ -819,7 +895,8 @@
                         <div class="perm-user-meta">
                             <span id="permUserEmail"><i class="fa-solid fa-envelope"></i> david@primepro.com.br</span>
                             <span class="role-badge" id="permUserRoleBadge">Administrador</span>
-                            <span class="perm-count-badge" id="permCountBadge"><i class="fa-solid fa-key"></i> 15 de 15 ativas</span>
+                            <span class="perm-count-badge" id="permCountBadge"><i class="fa-solid fa-key"></i> 15 de 15
+                                ativas</span>
                         </div>
                     </div>
                 </div>
@@ -827,18 +904,24 @@
                 <!-- Mode Switcher: Role Default vs Custom -->
                 <div class="perm-mode-selector">
                     <label class="perm-mode-option" id="lblPermModeDefault">
-                        <input type="radio" name="permMode" id="permModeDefault" value="default" onchange="App.alternarModoPermissao('default')">
+                        <input type="radio" name="permMode" id="permModeDefault" value="default"
+                            onchange="App.alternarModoPermissao('default')">
                         <div class="perm-mode-content">
-                            <div class="perm-mode-title"><i class="fa-solid fa-wand-magic-sparkles"></i> Padrão do Cargo</div>
-                            <div class="perm-mode-desc">Sincroniza automaticamente com a função (<span id="permRoleNameDesc">Operador</span>).</div>
+                            <div class="perm-mode-title"><i class="fa-solid fa-wand-magic-sparkles"></i> Padrão do Cargo
+                            </div>
+                            <div class="perm-mode-desc">Sincroniza automaticamente com a função (<span
+                                    id="permRoleNameDesc">Operador</span>).</div>
                         </div>
                     </label>
 
                     <label class="perm-mode-option active" id="lblPermModeCustom">
-                        <input type="radio" name="permMode" id="permModeCustom" value="custom" onchange="App.alternarModoPermissao('custom')" checked>
+                        <input type="radio" name="permMode" id="permModeCustom" value="custom"
+                            onchange="App.alternarModoPermissao('custom')" checked>
                         <div class="perm-mode-content">
-                            <div class="perm-mode-title"><i class="fa-solid fa-sliders"></i> Permissões Personalizadas</div>
-                            <div class="perm-mode-desc">Defina manualmente cada permissão individual para este usuário.</div>
+                            <div class="perm-mode-title"><i class="fa-solid fa-sliders"></i> Permissões Personalizadas
+                            </div>
+                            <div class="perm-mode-desc">Defina manualmente cada permissão individual para este usuário.
+                            </div>
                         </div>
                     </label>
                 </div>
@@ -847,18 +930,26 @@
                 <div class="perm-toolbar" id="permToolbar">
                     <div class="perm-search-box">
                         <i class="fa-solid fa-magnifying-glass"></i>
-                        <input type="text" id="inputBuscaPermissoes" placeholder="Filtrar permissões..." oninput="App.filtrarPermissoesUI(this.value)">
+                        <input type="text" id="inputBuscaPermissoes" placeholder="Filtrar permissões..."
+                            oninput="App.filtrarPermissoesUI(this.value)">
                     </div>
 
                     <div class="perm-presets">
                         <span class="perm-preset-label"><i class="fa-solid fa-bolt"></i> Perfis:</span>
-                        <button type="button" class="btn btn-secondary btn-xs" onclick="App.aplicarPresetPermissoes('operador')">Operador</button>
-                        <button type="button" class="btn btn-secondary btn-xs" onclick="App.aplicarPresetPermissoes('conferente')">Conferente</button>
-                        <button type="button" class="btn btn-secondary btn-xs" onclick="App.aplicarPresetPermissoes('supervisor')">Supervisor</button>
-                        <button type="button" class="btn btn-secondary btn-xs" onclick="App.aplicarPresetPermissoes('admin')">Admin</button>
+                        <button type="button" class="btn btn-secondary btn-xs"
+                            onclick="App.aplicarPresetPermissoes('operador')">Operador</button>
+                        <button type="button" class="btn btn-secondary btn-xs"
+                            onclick="App.aplicarPresetPermissoes('conferente')">Conferente</button>
+                        <button type="button" class="btn btn-secondary btn-xs"
+                            onclick="App.aplicarPresetPermissoes('supervisor')">Supervisor</button>
+                        <button type="button" class="btn btn-secondary btn-xs"
+                            onclick="App.aplicarPresetPermissoes('admin')">Admin</button>
                         <div style="width: 1px; height: 18px; background: var(--border-color); margin: 0 0.2rem;"></div>
-                        <button type="button" class="btn btn-secondary btn-xs" onclick="App.marcarTodasPermissoes(true)" title="Marcar todas"><i class="fa-solid fa-check-double"></i> Todas</button>
-                        <button type="button" class="btn btn-secondary btn-xs" onclick="App.marcarTodasPermissoes(false)" title="Desmarcar todas"><i class="fa-solid fa-ban"></i> Limpar</button>
+                        <button type="button" class="btn btn-secondary btn-xs" onclick="App.marcarTodasPermissoes(true)"
+                            title="Marcar todas"><i class="fa-solid fa-check-double"></i> Todas</button>
+                        <button type="button" class="btn btn-secondary btn-xs"
+                            onclick="App.marcarTodasPermissoes(false)" title="Desmarcar todas"><i
+                                class="fa-solid fa-ban"></i> Limpar</button>
                     </div>
                 </div>
 
@@ -870,11 +961,13 @@
 
             <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
                 <div id="permFooterStatus" style="font-size: 0.85rem; color: var(--text-secondary);">
-                    <span id="permTotalSelecionadas" style="font-weight: 700; color: var(--text-primary);">0</span> permissões ativas
+                    <span id="permTotalSelecionadas" style="font-weight: 700; color: var(--text-primary);">0</span>
+                    permissões ativas
                 </div>
                 <div style="display: flex; gap: 0.75rem;">
                     <button type="button" class="btn btn-secondary" onclick="App.fecharModais()">Cancelar</button>
-                    <button type="button" class="btn btn-primary" id="btnSalvarPermissoes" onclick="App.salvarPermissoesUsuario()">
+                    <button type="button" class="btn btn-primary" id="btnSalvarPermissoes"
+                        onclick="App.salvarPermissoesUsuario()">
                         <i class="fa-solid fa-floppy-disk"></i> Salvar Permissões
                     </button>
                 </div>
@@ -887,15 +980,18 @@
         <div class="modal-card" style="max-width: 440px;">
             <div class="modal-header" style="border-bottom: 1px solid var(--color-danger-border);">
                 <h3 style="color: var(--color-danger);"><i class="fa-solid fa-trash"></i> Excluir Usuário</h3>
-                <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
+                <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()"><i
+                        class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="excluirUsuarioId" value="">
                 <p style="color: var(--text-secondary); margin-bottom: 1rem; line-height: 1.5;">
-                    Tem certeza de que deseja remover o usuário <strong id="lblExcluirUsuarioNome" style="color: var(--text-primary);">---</strong> do sistema?
+                    Tem certeza de que deseja remover o usuário <strong id="lblExcluirUsuarioNome"
+                        style="color: var(--text-primary);">---</strong> do sistema?
                 </p>
                 <p style="color: var(--color-danger); font-size: 0.85rem;">
-                    <i class="fa-solid fa-triangle-exclamation"></i> Esta ação removerá permanentemente o acesso do usuário.
+                    <i class="fa-solid fa-triangle-exclamation"></i> Esta ação removerá permanentemente o acesso do
+                    usuário.
                 </p>
             </div>
             <div class="modal-footer">
@@ -912,22 +1008,26 @@
         <div class="modal-card" style="max-width: 480px;">
             <div class="modal-header" style="border-bottom: 1px solid var(--color-danger-border);">
                 <h3 style="color: var(--color-danger);"><i class="fa-solid fa-ban"></i> Cancelar Separação</h3>
-                <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
+                <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()"><i
+                        class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="modal-body">
                 <form id="formCancelarSeparacao" onsubmit="App.confirmarCancelamentoSeparacao(event)">
                     <input type="hidden" id="cancelarConferenciaId">
                     <input type="hidden" id="cancelarNumeroPedido">
-                    
+
                     <p style="color: var(--text-secondary); margin-bottom: 1.25rem; font-size: 0.9rem;">
-                        Você está prestes a cancelar a separação do pedido <strong id="lblCancelarNumeroPedido" style="color: #fff;">#---</strong>.
+                        Você está prestes a cancelar a separação do pedido <strong id="lblCancelarNumeroPedido"
+                            style="color: #fff;">#---</strong>.
                     </p>
 
                     <div class="form-group" style="margin-bottom: 1rem;">
-                        <label for="cancelarMotivo"><i class="fa-solid fa-list-check"></i> Motivo do Cancelamento</label>
+                        <label for="cancelarMotivo"><i class="fa-solid fa-list-check"></i> Motivo do
+                            Cancelamento</label>
                         <select id="cancelarMotivo" class="select-control" required>
                             <option value="Desistência do cliente">Desistência do cliente</option>
-                            <option value="Falta de estoque / Produto avariado">Falta de estoque / Produto avariado</option>
+                            <option value="Falta de estoque / Produto avariado">Falta de estoque / Produto avariado
+                            </option>
                             <option value="Pedido alterado no ERP">Pedido alterado no ERP</option>
                             <option value="Pedido duplicado">Pedido duplicado</option>
                             <option value="Erro operacional / Reagendamento">Erro operacional / Reagendamento</option>
@@ -936,13 +1036,17 @@
                     </div>
 
                     <div class="form-group" style="margin-bottom: 1.5rem;">
-                        <label for="cancelarObservacoes"><i class="fa-solid fa-comment"></i> Observações adicionais (Opcional)</label>
-                        <textarea id="cancelarObservacoes" class="input-control" rows="3" placeholder="Detalhes sobre o cancelamento..."></textarea>
+                        <label for="cancelarObservacoes"><i class="fa-solid fa-comment"></i> Observações adicionais
+                            (Opcional)</label>
+                        <textarea id="cancelarObservacoes" class="input-control" rows="3"
+                            placeholder="Detalhes sobre o cancelamento..."></textarea>
                     </div>
 
-                    <div class="modal-footer" style="padding: 0; background: none; border: none; display: flex; gap: 0.75rem; justify-content: flex-end;">
+                    <div class="modal-footer"
+                        style="padding: 0; background: none; border: none; display: flex; gap: 0.75rem; justify-content: flex-end;">
                         <button type="button" class="btn btn-secondary" onclick="App.fecharModais()">Voltar</button>
-                        <button type="submit" class="btn btn-danger"><i class="fa-solid fa-ban"></i> Confirmar Cancelamento</button>
+                        <button type="submit" class="btn btn-danger"><i class="fa-solid fa-ban"></i> Confirmar
+                            Cancelamento</button>
                     </div>
                 </form>
             </div>
@@ -955,7 +1059,8 @@
             <div class="modal-header">
                 <h3><i class="fa-solid fa-file-invoice"></i> Romaneio de Separação & Conferência</h3>
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
-                    <button class="btn btn-primary btn-sm" onclick="App.imprimirRomaneioAtual()" title="Imprimir Romaneio">
+                    <button class="btn btn-primary btn-sm" onclick="App.imprimirRomaneioAtual()"
+                        title="Imprimir Romaneio">
                         <i class="fa-solid fa-print"></i> Imprimir Romaneio
                     </button>
                     <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()" title="Fechar">
@@ -963,7 +1068,8 @@
                     </button>
                 </div>
             </div>
-            <div class="modal-body" style="padding: 1.25rem; overflow-y: auto; background: #ffffff; color: #1e293b; border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
+            <div class="modal-body"
+                style="padding: 1.25rem; overflow-y: auto; background: #ffffff; color: #1e293b; border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
                 <div id="modalRomaneioConteudo">
                     <!-- Conteúdo dinâmico do romaneio -->
                 </div>
@@ -987,29 +1093,34 @@
                 <h2 class="login-title">WMS PRIME</h2>
                 <p class="login-subtitle">Conferência & Separação Logística</p>
             </div>
-            
+
             <form id="loginForm" onsubmit="App.efetuarLogin(event)" class="login-form">
                 <div class="form-group">
                     <label for="loginEmail">
                         <i class="fa-solid fa-envelope"></i> Usuário / E-mail
                     </label>
-                    <input type="email" id="loginEmail" class="input-control" required placeholder="Ex: david@primepro.com.br">
+                    <input type="email" id="loginEmail" class="input-control" required
+                        placeholder="Ex: seuemail@primepro.com.br">
                 </div>
 
                 <div class="form-group">
                     <label for="loginSenha">
                         <i class="fa-solid fa-lock"></i> Senha de Acesso
                     </label>
-                    <input type="password" id="loginSenha" class="input-control" required placeholder="Digite sua senha ou PIN">
+                    <input type="password" id="loginSenha" class="input-control" required
+                        placeholder="Digite sua senha ou PIN">
                 </div>
 
                 <div style="margin-top: 0.5rem;">
-                    <button type="submit" class="btn btn-primary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.85rem; font-size: 0.95rem; font-weight: 700;">
+                    <button type="submit" class="btn btn-primary"
+                        style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.85rem; font-size: 0.95rem; font-weight: 700;">
                         <i class="fa-solid fa-right-from-bracket"></i> Entrar no Sistema
                     </button>
                 </div>
-                
-                <div id="loginErrorMessage" style="color: var(--color-danger); text-align: center; font-size: 0.85rem; font-weight: 600; min-height: 1.2rem; margin-top: 0.5rem;"></div>
+
+                <div id="loginErrorMessage"
+                    style="color: var(--color-danger); text-align: center; font-size: 0.85rem; font-weight: 600; min-height: 1.2rem; margin-top: 0.5rem;">
+                </div>
             </form>
         </div>
     </div>
@@ -1019,4 +1130,5 @@
     <script src="js/scanner.js"></script>
     <script src="js/app.js"></script>
 </body>
+
 </html>
