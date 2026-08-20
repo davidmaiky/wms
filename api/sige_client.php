@@ -15,7 +15,7 @@ class SigeClient {
         $this->baseUrl = rtrim(SIGE_BASE_URL, '/');
     }
 
-    public function request(string $endpoint, string $method = 'GET', array $params = [], $body = null) {
+    public function request(string $endpoint, string $method = 'GET', array $params = [], $body = null, int $maxRetries = 2) {
         $url = $this->baseUrl . '/' . ltrim($endpoint, '/');
         
         if ($method === 'GET' && !empty($params)) {
@@ -30,45 +30,77 @@ class SigeClient {
             'Accept: application/json'
         ];
 
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        $attempt = 0;
+        $lastError = '';
+        $httpCode = 0;
+        $response = false;
 
-        if ($method === 'POST') {
-            curl_setopt($ch, CURLOPT_POST, true);
-            if ($body !== null) {
-                curl_setopt($ch, CURLOPT_POSTFIELDS, is_string($body) ? $body : json_encode($body));
+        while ($attempt <= $maxRetries) {
+            $attempt++;
+            $startTime = microtime(true);
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 25);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+
+            if ($method === 'POST') {
+                curl_setopt($ch, CURLOPT_POST, true);
+                if ($body !== null) {
+                    curl_setopt($ch, CURLOPT_POSTFIELDS, is_string($body) ? $body : json_encode($body));
+                }
+            } elseif ($method === 'PUT') {
+                curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
+                if ($body !== null) {
+                    curl_setopt($ch, CURLOPT_POSTFIELDS, is_string($body) ? $body : json_encode($body));
+                }
             }
-        } elseif ($method === 'PUT') {
-            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
-            if ($body !== null) {
-                curl_setopt($ch, CURLOPT_POSTFIELDS, is_string($body) ? $body : json_encode($body));
+
+            $response = curl_exec($ch);
+            $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            $durationMs = round((microtime(true) - $startTime) * 1000, 2);
+            curl_close($ch);
+
+            // Log de requisições lentas (> 3.5s)
+            if ($durationMs > 3500) {
+                wmsLog('WARNING', "SIGE Cloud API lenta: $endpoint ({$durationMs}ms)");
+            }
+
+            if ($curlError) {
+                $lastError = 'Erro de conexão cURL: ' . $curlError;
+                wmsLog('WARNING', "Falha na conexão cURL com SIGE Cloud (Tentativa $attempt/$maxRetries): $curlError");
+            } elseif ($httpCode >= 500 && $httpCode <= 599) {
+                $lastError = "SIGE Cloud retornou HTTP $httpCode";
+                wmsLog('WARNING', "SIGE Cloud instável (Tentativa $attempt/$maxRetries): HTTP $httpCode");
+            } else {
+                // Requisição respondeu com status válido (2xx, 3xx, 4xx)
+                $decoded = json_decode($response, true);
+                return [
+                    'success' => ($httpCode >= 200 && $httpCode < 300),
+                    'status' => $httpCode,
+                    'data' => $decoded !== null ? $decoded : $response,
+                    'raw' => $response,
+                    'latency_ms' => $durationMs
+                ];
+            }
+
+            // Se for tentar novamente, aguardar backoff exponencial (300ms, 600ms)
+            if ($attempt <= $maxRetries) {
+                usleep($attempt * 300000);
             }
         }
 
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $error = curl_error($ch);
-        curl_close($ch);
-
-        if ($error) {
-            return [
-                'success' => false,
-                'status' => $httpCode,
-                'error' => 'Erro de conexão cURL: ' . $error
-            ];
-        }
-
-        $decoded = json_decode($response, true);
+        // Se esgotou as tentativas
+        wmsLog('ERROR', "Esgotadas tentativas de conexão com SIGE Cloud ($endpoint): $lastError");
         return [
-            'success' => ($httpCode >= 200 && $httpCode < 300),
-            'status' => $httpCode,
-            'data' => $decoded !== null ? $decoded : $response,
-            'raw' => $response
+            'success' => false,
+            'status' => $httpCode ?: 504,
+            'error' => $lastError ?: 'Falha na comunicação com SIGE Cloud após múltiplas tentativas.'
         ];
     }
 

@@ -264,10 +264,20 @@ const App = {
             const res = await fetch('api/pedidos.php?action=stats');
             const data = await res.json();
             if (data.success && data.stats) {
-                document.getElementById('kpiTotalConferencias').textContent = data.stats.total_conferencias || 0;
-                document.getElementById('kpiConferidosHoje').textContent = data.stats.conferidos_hoje || 0;
-                document.getElementById('kpiEmSeparacao').textContent = data.stats.em_separacao || 0;
-                document.getElementById('kpiDivergencias').textContent = data.stats.divergencias || 0;
+                const s = data.stats;
+                const setEl = (id, val) => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = val;
+                };
+
+                setEl('kpiTotalConferencias', s.total_conferencias || 0);
+                setEl('kpiConferidosHoje', s.conferidos_hoje || 0);
+                setEl('kpiEmSeparacao', s.em_separacao || 0);
+                setEl('kpiDivergencias', s.divergencias || 0);
+                setEl('kpiTaxaAcuracia', (s.taxa_acuracia !== undefined ? s.taxa_acuracia : 100) + '%');
+                setEl('kpiTempoMedio', (s.tempo_medio_minutos || 0) + ' min');
+                setEl('kpiItensBipadosHoje', s.itens_bipados_hoje || 0);
+                setEl('kpiVolumesHoje', s.volumes_hoje || 0);
             }
         } catch (e) {
             console.error('Erro ao carregar estatísticas:', e);
@@ -1467,6 +1477,8 @@ const App = {
 
                 this.modoCego = (c.modo_cego === '1');
             }
+
+            this.carregarListaBackups();
         } catch (e) {
             console.error('Erro ao carregar configurações:', e);
         }
@@ -1510,6 +1522,56 @@ const App = {
             }
         } catch (e) {
             this.toast('Erro ao testar conexão.', 'error');
+        }
+    },
+
+    async gerarBackupDb() {
+        this.toast('Gerando snapshot do banco de dados...', 'info');
+        try {
+            const res = await fetch('api/configuracoes.php?action=backup_db', { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                this.toast(`${data.message} (${data.size_kb} KB)`, 'success');
+                this.carregarListaBackups();
+            } else {
+                this.toast(data.error || 'Falha ao gerar backup.', 'error');
+            }
+        } catch (e) {
+            this.toast('Erro de comunicação ao gerar backup.', 'error');
+        }
+    },
+
+    async carregarListaBackups() {
+        const container = document.getElementById('listaBackupsBody');
+        if (!container) return;
+
+        try {
+            const res = await fetch('api/configuracoes.php?action=list_backups');
+            const data = await res.json();
+            if (data.success && data.backups) {
+                if (data.backups.length === 0) {
+                    container.innerHTML = '<span style="color: var(--text-muted);">Nenhum arquivo de backup gerado ainda.</span>';
+                    return;
+                }
+
+                let html = '<div style="display: flex; flex-direction: column; gap: 0.5rem;">';
+                data.backups.forEach(b => {
+                    html += `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0.6rem; background: rgba(255,255,255,0.03); border-radius: var(--radius-sm); border: 1px solid rgba(255,255,255,0.05);">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <i class="fa-solid fa-file-shield" style="color: var(--accent-green);"></i>
+                                <span class="font-mono" style="color: var(--text-primary); font-weight: 500;">${b.filename}</span>
+                                <span class="badge" style="font-size: 0.7rem; background: rgba(59,130,246,0.2); color: #60a5fa;">${b.size_kb} KB</span>
+                            </div>
+                            <span style="color: var(--text-muted); font-size: 0.75rem;">${b.created_at}</span>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                container.innerHTML = html;
+            }
+        } catch (e) {
+            container.innerHTML = '<span style="color: var(--danger-color);">Erro ao carregar histórico de backups.</span>';
         }
     },
 

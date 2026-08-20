@@ -180,36 +180,94 @@ try {
         case 'stats':
             requirePermission('pedidos_visualizar');
 
-            // Estatísticas gerais para o Dashboard
+            // Estatísticas gerais e KPIs operacionais para o Dashboard
             $stats = [
                 'total_conferencias' => 0,
                 'conferidos_hoje' => 0,
                 'em_separacao' => 0,
                 'divergencias' => 0,
+                'taxa_acuracia' => 100.0,
+                'tempo_medio_minutos' => 0,
+                'itens_bipados_hoje' => 0,
+                'volumes_hoje' => 0,
+                'ranking_operadores' => [],
                 'ultimas_conferencias' => []
             ];
 
             $hoje = date('Y-m-d');
 
             $rowTot = $db->query("SELECT COUNT(*) as c FROM conferencias")->fetch();
-            $stats['total_conferencias'] = (int)$rowTot['c'];
+            $stats['total_conferencias'] = (int)($rowTot['c'] ?? 0);
 
-            $rowConf = $db->query("SELECT COUNT(*) as c FROM conferencias WHERE status = 'conferido' AND DATE(data_fim) = '$hoje'")->fetch();
-            $stats['conferidos_hoje'] = (int)$rowConf['c'];
+            $stmtConf = $db->prepare("SELECT COUNT(*) as c FROM conferencias WHERE status = 'conferido' AND DATE(data_fim) = ?");
+            $stmtConf->execute([$hoje]);
+            $stats['conferidos_hoje'] = (int)($stmtConf->fetch()['c'] ?? 0);
 
             $rowSep = $db->query("SELECT COUNT(*) as c FROM conferencias WHERE status = 'em_separacao'")->fetch();
-            $stats['em_separacao'] = (int)$rowSep['c'];
+            $stats['em_separacao'] = (int)($rowSep['c'] ?? 0);
 
             $rowDiv = $db->query("SELECT COUNT(*) as c FROM conferencias WHERE status = 'divergencia'")->fetch();
-            $stats['divergencias'] = (int)$rowDiv['c'];
+            $stats['divergencias'] = (int)($rowDiv['c'] ?? 0);
 
+            // 1. Taxa de Acurácia (% pedidos concluídos sem divergência)
+            $totalConcluidos = $stats['conferidos_hoje'] + $stats['divergencias'];
+            if ($totalConcluidos > 0) {
+                $stats['taxa_acuracia'] = round(($stats['conferidos_hoje'] / $totalConcluidos) * 100, 1);
+            }
+
+            // 2. Tempo Médio de Separação (em minutos)
+            $rowTempo = $db->query("
+                SELECT AVG((julianday(data_fim) - julianday(data_inicio)) * 24 * 60) as media_minutos
+                FROM conferencias 
+                WHERE status IN ('conferido', 'divergencia') 
+                  AND data_inicio IS NOT NULL 
+                  AND data_fim IS NOT NULL
+                  AND data_fim >= data_inicio
+            ")->fetch();
+            $stats['tempo_medio_minutos'] = round((float)($rowTempo['media_minutos'] ?? 0), 1);
+
+            // 3. Itens/Peças bipadas hoje
+            $stmtItensHoje = $db->prepare("
+                SELECT SUM(quantidade_total_conferida) as qtd
+                FROM conferencias 
+                WHERE DATE(atualizado_em) = ?
+            ");
+            $stmtItensHoje->execute([$hoje]);
+            $stats['itens_bipados_hoje'] = (float)($stmtItensHoje->fetch()['qtd'] ?? 0);
+
+            // 4. Volumes gerados hoje
+            $stmtVolsHoje = $db->prepare("
+                SELECT COUNT(*) as c
+                FROM volumes 
+                WHERE DATE(criado_em) = ?
+            ");
+            $stmtVolsHoje->execute([$hoje]);
+            $stats['volumes_hoje'] = (int)($stmtVolsHoje->fetch()['c'] ?? 0);
+
+            // 5. Ranking de Produtividade por Operador (últimos 30 dias)
+            $stmtRank = $db->query("
+                SELECT operador, 
+                       COUNT(*) as pedidos_concluidos, 
+                       SUM(quantidade_total_conferida) as total_pecas
+                FROM conferencias 
+                WHERE status IN ('conferido', 'divergencia') 
+                  AND operador IS NOT NULL 
+                  AND operador != ''
+                  AND criado_em >= datetime('now', '-30 days')
+                GROUP BY operador 
+                ORDER BY pedidos_concluidos DESC, total_pecas DESC
+                LIMIT 5
+            ");
+            $stats['ranking_operadores'] = $stmtRank->fetchAll() ?: [];
+
+            // 6. Últimas conferências
             $stmtRec = $db->query("
                 SELECT c.*, 
                        (SELECT COUNT(*) FROM conferencia_itens ci WHERE ci.conferencia_id = c.id) as total_linhas
                 FROM conferencias c 
                 ORDER BY c.id DESC LIMIT 6
             ");
-            $stats['ultimas_conferencias'] = $stmtRec->fetchAll();
+            $stats['ultimas_conferencias'] = $stmtRec->fetchAll() ?: [];
 
             jsonResponse([
                 'success' => true,

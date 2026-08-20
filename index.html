@@ -123,6 +123,46 @@
                         <div class="kpi-value" id="kpiDivergencias">0</div>
                     </div>
                 </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-icon purple" style="background: rgba(168, 85, 247, 0.15); color: #a855f7;">
+                        <i class="fa-solid fa-bullseye"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <h3>Acurácia Operacional</h3>
+                        <div class="kpi-value" id="kpiTaxaAcuracia">100%</div>
+                    </div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-icon cyan" style="background: rgba(6, 182, 212, 0.15); color: #06b6d4;">
+                        <i class="fa-solid fa-stopwatch"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <h3>Tempo Médio</h3>
+                        <div class="kpi-value" id="kpiTempoMedio">0 min</div>
+                    </div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-icon orange" style="background: rgba(249, 115, 22, 0.15); color: #f97316;">
+                        <i class="fa-solid fa-barcode"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <h3>Peças Bipadas Hoje</h3>
+                        <div class="kpi-value" id="kpiItensBipadosHoje">0</div>
+                    </div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-icon teal" style="background: rgba(20, 184, 166, 0.15); color: #14b8a6;">
+                        <i class="fa-solid fa-boxes-stacked"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <h3>Volumes Hoje</h3>
+                        <div class="kpi-value" id="kpiVolumesHoje">0</div>
+                    </div>
+                </div>
             </div>
 
             <!-- Filtros de Busca de Pedidos SIGE -->
@@ -469,6 +509,37 @@
                             </button>
                         </div>
                     </form>
+                </div>
+            </div>
+
+            <!-- Card de Manutenção, Backup e Diagnóstico -->
+            <div class="modal-card" style="max-width: 800px; margin: 1.5rem auto 0 auto;">
+                <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3><i class="fa-solid fa-database"></i> Manutenção & Backup do Banco de Dados</h3>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="window.open('api/health.php?check_sige=1', '_blank')" title="Ver JSON de Diagnóstico">
+                            <i class="fa-solid fa-heart-pulse"></i> Diagnóstico de Saúde
+                        </button>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="App.gerarBackupDb()">
+                            <i class="fa-solid fa-download"></i> Gerar Backup Agora
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
+                        O backup online utiliza o comando atômico <code>VACUUM INTO</code> do SQLite para criar cópias snapshot consistentes do banco de dados em <code>data/backups/</code> sem interromper as operações em andamento.
+                    </p>
+                    <div id="listaBackupsContainer" style="background: rgba(15, 23, 42, 0.4); border-radius: var(--radius-md); padding: 1rem; border: 1px solid var(--border-color);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <strong style="font-size: 0.85rem; color: var(--text-primary);"><i class="fa-solid fa-clock-rotate-left"></i> Histórico de Backups Locais</strong>
+                            <button type="button" class="btn btn-sm btn-link" onclick="App.carregarListaBackups()" style="font-size: 0.8rem;">
+                                <i class="fa-solid fa-rotate"></i> Atualizar
+                            </button>
+                        </div>
+                        <div id="listaBackupsBody" style="font-size: 0.85rem; color: var(--text-muted);">
+                            Clique em "Atualizar" para carregar os backups.
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>

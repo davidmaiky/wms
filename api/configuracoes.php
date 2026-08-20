@@ -104,6 +104,60 @@ try {
             ]);
             break;
 
+        case 'backup_db':
+            requirePermission('config_alterar');
+
+            $backupDir = DATA_DIR . '/backups';
+            if (!is_dir($backupDir)) {
+                @mkdir($backupDir, 0777, true);
+            }
+
+            $filename = 'wms_backup_' . date('Y-m-d_H-i-s') . '.sqlite';
+            $destPath = $backupDir . '/' . $filename;
+
+            try {
+                // VACUUM INTO cria um snapshot consistente sem interromper leituras ou escritas
+                $db->exec("VACUUM INTO " . $db->quote($destPath));
+                $fileSizeBytes = file_exists($destPath) ? filesize($destPath) : 0;
+                
+                wmsLog('INFO', "Backup do banco de dados gerado com sucesso: $filename (" . round($fileSizeBytes / 1024, 1) . " KB)");
+
+                jsonResponse([
+                    'success' => true,
+                    'message' => "Backup gerado com sucesso!",
+                    'filename' => $filename,
+                    'size_kb' => round($fileSizeBytes / 1024, 1),
+                    'timestamp' => date('Y-m-d H:i:s')
+                ]);
+            } catch (\Throwable $e) {
+                wmsLog('ERROR', "Falha ao gerar backup do banco de dados: " . $e->getMessage());
+                jsonError("Falha ao gerar backup: " . $e->getMessage(), 500);
+            }
+            break;
+
+        case 'list_backups':
+            requirePermission('config_visualizar');
+
+            $backupDir = DATA_DIR . '/backups';
+            $backups = [];
+            if (is_dir($backupDir)) {
+                $files = glob($backupDir . '/*.sqlite');
+                rsort($files);
+                foreach ($files as $f) {
+                    $backups[] = [
+                        'filename' => basename($f),
+                        'size_kb' => round(filesize($f) / 1024, 1),
+                        'created_at' => date('Y-m-d H:i:s', filemtime($f))
+                    ];
+                }
+            }
+
+            jsonResponse([
+                'success' => true,
+                'backups' => $backups
+            ]);
+            break;
+
         default:
             jsonError("Ação desconhecida.");
     }
