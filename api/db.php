@@ -11,6 +11,12 @@ function getDB(): PDO {
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
         
+        // Otimização de concorrência e integridade do SQLite
+        $pdo->exec("PRAGMA journal_mode = WAL;");
+        $pdo->exec("PRAGMA synchronous = NORMAL;");
+        $pdo->exec("PRAGMA busy_timeout = 5000;");
+        $pdo->exec("PRAGMA foreign_keys = ON;");
+        
         if ($needInit || true) {
             initSchema($pdo);
         }
@@ -145,9 +151,9 @@ function initSchema(PDO $pdo) {
     $countUsers = $pdo->query("SELECT COUNT(*) FROM usuarios")->fetchColumn();
     if ($countUsers == 0) {
         $stmtUser = $pdo->prepare("INSERT INTO usuarios (nome, email, funcao, pin, status, avatar_cor) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmtUser->execute(['David', 'david@primepro.com.br', 'admin', '1234', 'ativo', '#3b82f6']);
-        $stmtUser->execute(['Operador Padrão', 'operador@primepro.com.br', 'operador', '1111', 'ativo', '#10b981']);
-        $stmtUser->execute(['Conferente WMS', 'conferente@primepro.com.br', 'conferente', '2222', 'ativo', '#8b5cf6']);
+        $stmtUser->execute(['David', 'david@primepro.com.br', 'admin', password_hash('1234', PASSWORD_BCRYPT), 'ativo', '#3b82f6']);
+        $stmtUser->execute(['Operador Padrão', 'operador@primepro.com.br', 'operador', password_hash('1111', PASSWORD_BCRYPT), 'ativo', '#10b981']);
+        $stmtUser->execute(['Conferente WMS', 'conferente@primepro.com.br', 'conferente', password_hash('2222', PASSWORD_BCRYPT), 'ativo', '#8b5cf6']);
     }
 
     // Inserir configurações padrão se não existirem

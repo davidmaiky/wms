@@ -10,9 +10,31 @@ define('DEFAULT_SIGE_USER', 'david@primepro.com.br');
 define('DEFAULT_SIGE_APP', 'API');
 define('SIGE_BASE_URL', 'https://api.sigecloud.com.br');
 
-// Criar diretório de dados se não existir
+define('LOGS_DIR', __DIR__ . '/../data/logs');
+
+// Criar diretórios de dados e logs se não existirem
 if (!is_dir(DATA_DIR)) {
     @mkdir(DATA_DIR, 0777, true);
+}
+if (!is_dir(LOGS_DIR)) {
+    @mkdir(LOGS_DIR, 0777, true);
+}
+
+/**
+ * Função de Logging Estruturado do WMS
+ */
+function wmsLog(string $level, string $message, array $context = []): void {
+    try {
+        $logFile = LOGS_DIR . '/wms-' . date('Y-m-d') . '.log';
+        $time = date('Y-m-d H:i:s');
+        $user = $_SESSION['wms_user']['email'] ?? 'anonimo';
+        $ip = $_SERVER['REMOTE_ADDR'] ?? 'cli';
+        $contextStr = !empty($context) ? ' | Context: ' . json_encode($context, JSON_UNESCAPED_UNICODE) : '';
+        $logLine = "[$time] [$level] [User: $user] [IP: $ip] $message$contextStr" . PHP_EOL;
+        @file_put_contents($logFile, $logLine, FILE_APPEND | LOCK_EX);
+    } catch (\Throwable $e) {
+        // Falhas em logs não devem interromper o fluxo da aplicação
+    }
 }
 
 // Helpers de resposta JSON
@@ -27,6 +49,9 @@ function jsonResponse($data, $statusCode = 200) {
 }
 
 function jsonError($message, $statusCode = 400, $details = null) {
+    if ($statusCode >= 500) {
+        wmsLog('ERROR', "HTTP $statusCode: $message", is_array($details) ? $details : ['details' => $details]);
+    }
     jsonResponse([
         'success' => false,
         'error' => $message,
@@ -34,8 +59,13 @@ function jsonError($message, $statusCode = 400, $details = null) {
     ], $statusCode);
 }
 
-// Iniciar sessão PHP para autenticação dos operadores
+// Iniciar sessão PHP segura para autenticação dos operadores
 if (session_status() === PHP_SESSION_NONE) {
+    if (PHP_SAPI !== 'cli') {
+        ini_set('session.cookie_httponly', '1');
+        ini_set('session.use_only_cookies', '1');
+        ini_set('session.cookie_samesite', 'Lax');
+    }
     session_start();
 }
 
@@ -94,8 +124,8 @@ function checkAuth() {
         }
     }
 
-    // Permitir a ação de login sem autenticação
-    if ($script === 'usuarios.php' && $action === 'login') {
+    // Permitir a ação de login e o endpoint de health check sem autenticação prévia
+    if ($script === 'health.php' || ($script === 'usuarios.php' && $action === 'login')) {
         return;
     }
 

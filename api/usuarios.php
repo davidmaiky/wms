@@ -283,7 +283,8 @@ try {
                 INSERT INTO usuarios (nome, email, funcao, pin, status, avatar_cor, permissoes, criado_em, atualizado_em)
                 VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             ");
-            $stmt->execute([$nome, $email, $funcao, $pin, $status, $avatarCor, $permissoesDb]);
+            $pinHash = !empty($pin) ? password_hash($pin, PASSWORD_BCRYPT) : null;
+            $stmt->execute([$nome, $email, $funcao, $pinHash, $status, $avatarCor, $permissoesDb]);
             $novoId = $db->lastInsertId();
 
             jsonResponse([
@@ -348,6 +349,7 @@ try {
             }
 
             if ($pin !== '') {
+                $pinHash = password_hash($pin, PASSWORD_BCRYPT);
                 $stmt = $db->prepare("
                     UPDATE usuarios SET
                         nome = ?,
@@ -359,7 +361,7 @@ try {
                         atualizado_em = CURRENT_TIMESTAMP
                     WHERE id = ?
                 ");
-                $stmt->execute([$nome, $email, $funcao, $pin, $status, $avatarCor, $id]);
+                $stmt->execute([$nome, $email, $funcao, $pinHash, $status, $avatarCor, $id]);
             } else {
                 $stmt = $db->prepare("
                     UPDATE usuarios SET
@@ -497,20 +499,38 @@ try {
             $user = $stmt->fetch();
 
             if (!$user) {
+                wmsLog('WARNING', "Tentativa de login para e-mail inexistente: '$email'");
                 jsonError("E-mail ou senha incorretos.");
             }
 
             if ($user['status'] !== 'ativo') {
+                wmsLog('WARNING', "Tentativa de login de usuário inativo: '{$user['email']}'");
                 jsonError("Este usuário está inativo. Contate um administrador.");
             }
 
-            if ($user['pin'] !== $senha) {
+            $pinValido = false;
+            if (!empty($user['pin'])) {
+                if (password_verify($senha, $user['pin'])) {
+                    $pinValido = true;
+                } elseif ($user['pin'] === $senha) {
+                    // Migração transparente de PIN em texto puro para BCrypt
+                    $pinValido = true;
+                    $newHash = password_hash($senha, PASSWORD_BCRYPT);
+                    $db->prepare("UPDATE usuarios SET pin = ? WHERE id = ?")->execute([$newHash, $user['id']]);
+                    wmsLog('INFO', "PIN do usuário '{$user['email']}' migrado automaticamente para hash BCrypt.");
+                }
+            }
+
+            if (!$pinValido) {
+                wmsLog('WARNING', "Senha/PIN incorreto para o usuário: '{$user['email']}'");
                 jsonError("E-mail ou senha incorretos.");
             }
 
             // Atualizar último acesso
             $upStmt = $db->prepare("UPDATE usuarios SET ultimo_acesso = CURRENT_TIMESTAMP WHERE id = ?");
             $upStmt->execute([$user['id']]);
+
+            wmsLog('INFO', "Login realizado com sucesso: '{$user['email']}'");
 
             $permissoesEfetivas = getUserEffectivePermissions($user);
 

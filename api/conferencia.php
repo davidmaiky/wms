@@ -63,49 +63,59 @@ try {
                     $qtdTotalEsperada += (float)($it['Quantidade'] ?? 0);
                 }
 
-                $stmtIns = $db->prepare("
-                    INSERT INTO conferencias (
-                        pedido_sige_id, numero_pedido, cliente, operador, status, 
-                        total_itens, itens_conferidos, quantidade_total_esperada, 
-                        quantidade_total_conferida, data_inicio, criado_em, atualizado_em
-                    ) VALUES (?, ?, ?, ?, 'em_separacao', ?, 0, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                ");
-                $stmtIns->execute([
-                    $pedido['ID'] ?? '',
-                    $codigo,
-                    $pedido['Cliente'] ?? 'Consumidor',
-                    $operador,
-                    $totalItensLinhas,
-                    $qtdTotalEsperada
-                ]);
-                $conferenciaId = (int)$db->lastInsertId();
+                $db->beginTransaction();
+                try {
+                    $stmtIns = $db->prepare("
+                        INSERT INTO conferencias (
+                            pedido_sige_id, numero_pedido, cliente, operador, status, 
+                            total_itens, itens_conferidos, quantidade_total_esperada, 
+                            quantidade_total_conferida, data_inicio, criado_em, atualizado_em
+                        ) VALUES (?, ?, ?, ?, 'em_separacao', ?, 0, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    ");
+                    $stmtIns->execute([
+                        $pedido['ID'] ?? '',
+                        $codigo,
+                        $pedido['Cliente'] ?? 'Consumidor',
+                        $operador,
+                        $totalItensLinhas,
+                        $qtdTotalEsperada
+                    ]);
+                    $conferenciaId = (int)$db->lastInsertId();
 
-                // Inserir itens
-                $stmtItemIns = $db->prepare("
-                    INSERT INTO conferencia_itens (
-                        conferencia_id, codigo_produto, ean, descricao, unidade, 
-                        quantidade_pedida, quantidade_conferida, status, categoria
-                    ) VALUES (?, ?, ?, ?, ?, ?, 0, 'pendente', ?)
-                ");
+                    // Inserir itens
+                    $stmtItemIns = $db->prepare("
+                        INSERT INTO conferencia_itens (
+                            conferencia_id, codigo_produto, ean, descricao, unidade, 
+                            quantidade_pedida, quantidade_conferida, status, categoria
+                        ) VALUES (?, ?, ?, ?, ?, ?, 0, 'pendente', ?)
+                    ");
 
-                foreach ($items as $it) {
-                    $codProd = trim($it['Codigo'] ?? '');
-                    $eanProd = trim($it['EAN'] ?? $it['Ean'] ?? $it['CodigoBarra'] ?? '');
-                    
-                    // Obter EAN via resolver integrado (De-Para customizado -> Cache local -> SIGE Cloud)
-                    if (empty($eanProd) && !empty($codProd)) {
-                        $eanProd = obterEanProduto($codProd, $sige, $db);
+                    foreach ($items as $it) {
+                        $codProd = trim($it['Codigo'] ?? '');
+                        $eanProd = trim($it['EAN'] ?? $it['Ean'] ?? $it['CodigoBarra'] ?? '');
+                        
+                        // Obter EAN via resolver integrado (De-Para customizado -> Cache local -> SIGE Cloud)
+                        if (empty($eanProd) && !empty($codProd)) {
+                            $eanProd = obterEanProduto($codProd, $sige, $db);
+                        }
+
+                        $stmtItemIns->execute([
+                            $conferenciaId,
+                            $codProd,
+                            $eanProd,
+                            trim($it['Descricao'] ?? $codProd),
+                            trim($it['Unidade'] ?? 'UN'),
+                            (float)($it['Quantidade'] ?? 1),
+                            trim($it['Categoria'] ?? '')
+                        ]);
                     }
 
-                    $stmtItemIns->execute([
-                        $conferenciaId,
-                        $codProd,
-                        $eanProd,
-                        trim($it['Descricao'] ?? $codProd),
-                        trim($it['Unidade'] ?? 'UN'),
-                        (float)($it['Quantidade'] ?? 1),
-                        trim($it['Categoria'] ?? '')
-                    ]);
+                    $db->commit();
+                } catch (\Throwable $ex) {
+                    if ($db->inTransaction()) {
+                        $db->rollBack();
+                    }
+                    throw $ex;
                 }
             }
 
@@ -348,19 +358,29 @@ try {
             if (!$v) jsonError("Volume não encontrado.");
 
             $conferenciaId = $v['conferencia_id'];
-            $db->prepare("DELETE FROM volumes WHERE id = ?")->execute([$volumeId]);
 
-            // Reorganizar números de volumes
-            $stmtAll = $db->prepare("SELECT id FROM volumes WHERE conferencia_id = ? ORDER BY id ASC");
-            $stmtAll->execute([$conferenciaId]);
-            $all = $stmtAll->fetchAll();
-            $tot = count($all);
-            $n = 1;
-            foreach ($all as $itemV) {
-                $et = "VOL-" . str_pad($conferenciaId, 5, '0', STR_PAD_LEFT) . "-" . str_pad($n, 2, '0', STR_PAD_LEFT);
-                $db->prepare("UPDATE volumes SET numero_volume = ?, total_volumes = ?, etiqueta_codigo = ? WHERE id = ?")
-                   ->execute([$n, $tot, $et, $itemV['id']]);
-                $n++;
+            $db->beginTransaction();
+            try {
+                $db->prepare("DELETE FROM volumes WHERE id = ?")->execute([$volumeId]);
+
+                // Reorganizar números de volumes
+                $stmtAll = $db->prepare("SELECT id FROM volumes WHERE conferencia_id = ? ORDER BY id ASC");
+                $stmtAll->execute([$conferenciaId]);
+                $all = $stmtAll->fetchAll();
+                $tot = count($all);
+                $n = 1;
+                foreach ($all as $itemV) {
+                    $et = "VOL-" . str_pad($conferenciaId, 5, '0', STR_PAD_LEFT) . "-" . str_pad($n, 2, '0', STR_PAD_LEFT);
+                    $db->prepare("UPDATE volumes SET numero_volume = ?, total_volumes = ?, etiqueta_codigo = ? WHERE id = ?")
+                       ->execute([$n, $tot, $et, $itemV['id']]);
+                    $n++;
+                }
+                $db->commit();
+            } catch (\Throwable $ex) {
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+                throw $ex;
             }
 
             retornarDadosConferencia($conferenciaId, "Volume removido.");
@@ -454,10 +474,19 @@ try {
             $conferenciaId = (int)($_POST['conferencia_id'] ?? 0);
             if (!$conferenciaId) jsonError("ID da conferência não informado.");
 
-            $db->prepare("UPDATE conferencia_itens SET quantidade_conferida = 0, status = 'pendente' WHERE conferencia_id = ?")->execute([$conferenciaId]);
-            $db->prepare("UPDATE conferencias SET status = 'em_separacao', itens_conferidos = 0, quantidade_total_conferida = 0, data_fim = NULL, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?")->execute([$conferenciaId]);
-            $db->prepare("DELETE FROM logs_bipagem WHERE conferencia_id = ?")->execute([$conferenciaId]);
-            $db->prepare("DELETE FROM volumes WHERE conferencia_id = ?")->execute([$conferenciaId]);
+            $db->beginTransaction();
+            try {
+                $db->prepare("UPDATE conferencia_itens SET quantidade_conferida = 0, status = 'pendente' WHERE conferencia_id = ?")->execute([$conferenciaId]);
+                $db->prepare("UPDATE conferencias SET status = 'em_separacao', itens_conferidos = 0, quantidade_total_conferida = 0, data_fim = NULL, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?")->execute([$conferenciaId]);
+                $db->prepare("DELETE FROM logs_bipagem WHERE conferencia_id = ?")->execute([$conferenciaId]);
+                $db->prepare("DELETE FROM volumes WHERE conferencia_id = ?")->execute([$conferenciaId]);
+                $db->commit();
+            } catch (\Throwable $ex) {
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+                throw $ex;
+            }
 
             retornarDadosConferencia($conferenciaId, "Conferência reiniciada. Todos os itens zerados.");
             break;
