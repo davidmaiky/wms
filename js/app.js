@@ -2110,72 +2110,7 @@ const App = {
         }
     },
 
-    // --- OPERADOR & PREFERÊNCIAS ---
-    async modalOperador() {
-        document.getElementById('inputNomeOperador').value = this.operador;
-        const container = document.getElementById('listaOperadoresSelecao');
-
-        if (container) {
-            container.innerHTML = `<div style="text-align: center; padding: 1rem; color: var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Carregando operadores...</div>`;
-            document.getElementById('modalOperador').classList.add('active');
-
-            try {
-                const res = await fetch('api/usuarios.php?action=active_operators');
-                const data = await res.json();
-
-                if (data.success && data.data && data.data.length > 0) {
-                    let html = '';
-                    data.data.forEach(op => {
-                        const nomes = (op.nome || '').trim().split(/\s+/);
-                        const initials = (nomes.length >= 2 ? (nomes[0][0] + nomes[nomes.length - 1][0]) : (op.nome.substring(0, 2))).toUpperCase();
-                        const isCurrent = (op.nome.toLowerCase() === this.operador.toLowerCase());
-
-                        html += `
-                            <div class="operator-select-card ${isCurrent ? 'active-op' : ''}" onclick="App.selecionarOperadorRapido('${op.nome.replace(/'/g, "\\'")}')">
-                                <div style="display: flex; align-items: center; gap: 0.75rem;">
-                                    <div class="user-avatar avatar-sm" style="background: ${op.avatar_cor || '#3b82f6'};">
-                                        ${initials}
-                                    </div>
-                                    <div>
-                                        <strong style="display: block; font-size: 0.9rem; color: var(--text-primary);">${op.nome}</strong>
-                                        <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: capitalize;">${op.funcao}</span>
-                                    </div>
-                                </div>
-                                <div>
-                                    ${isCurrent ? '<i class="fa-solid fa-circle-check" style="color: var(--color-primary);"></i>' : '<i class="fa-solid fa-arrow-right" style="color: var(--text-muted); font-size: 0.8rem;"></i>'}
-                                </div>
-                            </div>
-                        `;
-                    });
-                    container.innerHTML = html;
-                } else {
-                    container.innerHTML = `<div style="text-align: center; color: var(--text-muted); font-size: 0.8rem; padding: 0.5rem;">Nenhum operador cadastrado. Digite o nome abaixo:</div>`;
-                }
-            } catch (e) {
-                container.innerHTML = `<div style="text-align: center; color: var(--text-muted); font-size: 0.8rem; padding: 0.5rem;">Não foi possível carregar a lista de operadores.</div>`;
-            }
-        } else {
-            document.getElementById('modalOperador').classList.add('active');
-        }
-
-        document.getElementById('inputNomeOperador').focus();
-    },
-
-    selecionarOperadorRapido(nome) {
-        if (!nome) return;
-        this.operador = nome;
-        localStorage.setItem('wms_operador', nome);
-        document.getElementById('lblOperadorHeader').textContent = nome;
-        this.fecharModais();
-        this.toast(`Operador selecionado: ${nome}`, 'success');
-    },
-
-    salvarOperadorAtual() {
-        const nome = document.getElementById('inputNomeOperador').value.trim();
-        if (nome) {
-            this.selecionarOperadorRapido(nome);
-        }
-    },
+    // --- PREFERÊNCIAS ---
 
     toggleSound() {
         this.soundEnabled = !this.soundEnabled;

@@ -58,7 +58,7 @@
 
             <!-- Header Actions -->
             <div class="header-actions">
-                <div class="operator-badge" onclick="App.modalOperador()" style="cursor: pointer;" title="Alterar operador">
+                <div class="operator-badge" title="Usuário conectado">
                     <div class="operator-avatar-mini" id="avatarMiniHeader">D</div>
                     <span><strong id="lblOperadorHeader">David</strong></span>
                 </div>
@@ -646,40 +646,6 @@
         </div>
     </div>
 
-    <!-- Modal Operador (Seleção Rápida e Customizada) -->
-    <div class="modal-overlay" id="modalOperador">
-        <div class="modal-card" style="max-width: 480px;">
-            <div class="modal-header">
-                <h3><i class="fa-solid fa-user-gear"></i> Selecionar Operador</h3>
-                <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div class="modal-body">
-                <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.75rem;">
-                    Selecione um dos operadores cadastrados no sistema:
-                </p>
-
-                <!-- Lista dinâmica de operadores ativos -->
-                <div class="operator-select-grid" id="listaOperadoresSelecao">
-                    <!-- Gerado via JS -->
-                </div>
-
-                <div style="display: flex; align-items: center; gap: 0.75rem; margin: 1.25rem 0 0.75rem 0;">
-                    <hr style="flex: 1; border: none; border-top: 1px solid var(--border-color);">
-                    <span style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase;">ou digite manualmente</span>
-                    <hr style="flex: 1; border: none; border-top: 1px solid var(--border-color);">
-                </div>
-
-                <div class="form-group">
-                    <label for="inputNomeOperador">Nome do Operador de Separação:</label>
-                    <input type="text" id="inputNomeOperador" class="input-control" placeholder="Seu nome...">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="App.fecharModais()">Cancelar</button>
-                <button type="button" class="btn btn-primary" onclick="App.salvarOperadorAtual()"><i class="fa-solid fa-check"></i> Confirmar Operador</button>
-            </div>
-        </div>
-    </div>
 
     <!-- Modal Novo / Editar Usuário -->
     <div class="modal-overlay" id="modalUsuario">
