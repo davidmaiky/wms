@@ -79,6 +79,12 @@
                             </a>
                         </li>
                         <li class="nav-main-item">
+                            <a class="nav-main-link nav-btn" data-view="recebimento" id="btnNavRecebimento" href="javascript:void(0)" onclick="App.navigate('recebimento')">
+                                <i class="nav-main-link-icon fa-solid fa-truck-ramp-box"></i>
+                                <span class="nav-main-link-name">Recebimento & Inbound</span>
+                            </a>
+                        </li>
+                        <li class="nav-main-item">
                             <a class="nav-main-link nav-btn" data-view="historico" href="javascript:void(0)" onclick="App.navigate('historico')">
                                 <i class="nav-main-link-icon fa-solid fa-clock-rotate-left"></i>
                                 <span class="nav-main-link-name">Histórico de Conferências</span>
@@ -86,6 +92,12 @@
                         </li>
 
                         <li class="nav-main-heading">Mapeamento</li>
+                        <li class="nav-main-item">
+                            <a class="nav-main-link nav-btn" data-view="locais" id="btnNavLocais" href="javascript:void(0)" onclick="App.navigate('locais')">
+                                <i class="nav-main-link-icon fa-solid fa-warehouse"></i>
+                                <span class="nav-main-link-name">Endereçamento & Posições</span>
+                            </a>
+                        </li>
                         <li class="nav-main-item">
                             <a class="nav-main-link nav-btn" data-view="eans" href="javascript:void(0)" onclick="App.navigate('eans')">
                                 <i class="nav-main-link-icon fa-solid fa-tags"></i>
@@ -985,6 +997,404 @@
                     </div>
                 </div>
             </section>
+
+            <!-- ===============================================================
+                 VIEW 7: ENDEREÇAMENTO & SLOTTING DE ARMAZÉM (ONEUI)
+                 =============================================================== -->
+            <section id="view-locais" class="view-section">
+                <div class="bg-body-light">
+                    <div class="content content-full">
+                        <div class="d-flex flex-column flex-sm-row justify-content-sm-between align-items-sm-center py-2">
+                            <div>
+                                <h1 class="h3 fw-bold mb-1">Endereçamento & Slotting de Armazém</h1>
+                                <h2 class="fs-sm lh-base fw-medium text-muted mb-0">Mapeamento físico de ruas, prateleiras, níveis e posições de picking</h2>
+                            </div>
+                            <div class="mt-3 mt-sm-0 ms-sm-3 d-flex gap-2 flex-wrap">
+                                <button class="btn btn-sm btn-alt-secondary" onclick="App.modalImprimirEtiquetasLocais()">
+                                    <i class="fa-solid fa-barcode me-1"></i> Imprimir Etiquetas
+                                </button>
+                                <button class="btn btn-sm btn-alt-primary" onclick="App.modalGerarLocaisLote()">
+                                    <i class="fa-solid fa-bolt me-1"></i> Gerar em Lote
+                                </button>
+                                <button class="btn btn-sm btn-primary" onclick="App.modalNovoLocal()">
+                                    <i class="fa-solid fa-plus me-1"></i> Nova Posição
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="content">
+                    <!-- Location KPIs Row -->
+                    <div class="row items-push">
+                        <div class="col-6 col-md-3">
+                            <div class="block block-rounded d-flex flex-column h-100 mb-0">
+                                <div class="block-content block-content-full flex-grow-1 d-flex justify-content-between align-items-center">
+                                    <dl class="mb-0">
+                                        <dt class="fs-3 fw-bold" id="kpiTotalLocais">0</dt>
+                                        <dd class="fs-sm fw-medium text-muted mb-0">Total de Posições</dd>
+                                    </dl>
+                                    <div class="item item-rounded-lg bg-primary-light">
+                                        <i class="fa-solid fa-warehouse fs-3 text-primary"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="block block-rounded d-flex flex-column h-100 mb-0">
+                                <div class="block-content block-content-full flex-grow-1 d-flex justify-content-between align-items-center">
+                                    <dl class="mb-0">
+                                        <dt class="fs-3 fw-bold text-success" id="kpiLocaisPicking">0</dt>
+                                        <dd class="fs-sm fw-medium text-muted mb-0">Posições de Picking</dd>
+                                    </dl>
+                                    <div class="item item-rounded-lg bg-success-light">
+                                        <i class="fa-solid fa-cart-flatbed fs-3 text-success"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="block block-rounded d-flex flex-column h-100 mb-0">
+                                <div class="block-content block-content-full flex-grow-1 d-flex justify-content-between align-items-center">
+                                    <dl class="mb-0">
+                                        <dt class="fs-3 fw-bold text-info" id="kpiLocaisPulmao">0</dt>
+                                        <dd class="fs-sm fw-medium text-muted mb-0">Posições Pulmão / Reserva</dd>
+                                    </dl>
+                                    <div class="item item-rounded-lg bg-info-light">
+                                        <i class="fa-solid fa-boxes-stacked fs-3 text-info"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="block block-rounded d-flex flex-column h-100 mb-0">
+                                <div class="block-content block-content-full flex-grow-1 d-flex justify-content-between align-items-center">
+                                    <dl class="mb-0">
+                                        <dt class="fs-3 fw-bold text-warning" id="kpiSkusAlocados">0</dt>
+                                        <dd class="fs-sm fw-medium text-muted mb-0">SKUs Endereçados</dd>
+                                    </dl>
+                                    <div class="item item-rounded-lg bg-warning-light">
+                                        <i class="fa-solid fa-tags fs-3 text-warning"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filter Block -->
+                    <div class="block block-rounded mb-3">
+                        <div class="block-content p-3">
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-3">
+                                    <label class="form-label fs-sm" for="filtroLocaisBusca"><i class="fa-solid fa-magnifying-glass me-1"></i> Buscar</label>
+                                    <input type="text" id="filtroLocaisBusca" class="form-control form-control-sm" placeholder="Código (ex: A-01), SKU ou Nome..." oninput="App.carregarLocais()">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label fs-sm" for="filtroLocaisArmazem"><i class="fa-solid fa-building me-1"></i> Armazém</label>
+                                    <select id="filtroLocaisArmazem" class="form-select form-select-sm" onchange="App.carregarLocais()">
+                                        <option value="">Todos os Armazéns</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label fs-sm" for="filtroLocaisRua"><i class="fa-solid fa-signs-post me-1"></i> Rua / Corredor</label>
+                                    <select id="filtroLocaisRua" class="form-select form-select-sm" onchange="App.carregarLocais()">
+                                        <option value="">Todas as Ruas</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fs-sm" for="filtroLocaisTipo"><i class="fa-solid fa-layer-group me-1"></i> Tipo de Posição</label>
+                                    <select id="filtroLocaisTipo" class="form-select form-select-sm" onchange="App.carregarLocais()">
+                                        <option value="">Todos os Tipos</option>
+                                        <option value="picking">Picking (Separação)</option>
+                                        <option value="pulmao">Pulmão / Reserva</option>
+                                        <option value="quarentena">Quarentena</option>
+                                        <option value="avarias">Avarias / Danificados</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <button class="btn btn-sm btn-alt-secondary w-100" onclick="App.limparFiltrosLocais()">
+                                        <i class="fa-solid fa-rotate-left me-1"></i> Limpar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Locations Table Block -->
+                    <div class="block block-rounded">
+                        <div class="block-content block-content-full p-0">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-vcenter table-hover fs-sm mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Endereço / Posição</th>
+                                            <th>Armazém & Localização</th>
+                                            <th>Tipo</th>
+                                            <th>SKUs Vinculados</th>
+                                            <th>Estoque Total</th>
+                                            <th>Status</th>
+                                            <th class="text-end">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="locaisTableBody">
+                                        <!-- Gerado via JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===============================================================
+                 VIEW 8: RECEBIMENTO & INBOUND (ONEUI)
+                 =============================================================== -->
+            <section id="view-recebimento" class="view-section">
+                <!-- Inbound Receipts List View Container -->
+                <div id="recebimentoListaContainer">
+                    <div class="bg-body-light">
+                        <div class="content content-full">
+                            <div class="d-flex flex-column flex-sm-row justify-content-sm-between align-items-sm-center py-2">
+                                <div>
+                                    <h1 class="h3 fw-bold mb-1">Recebimento de Mercadorias (Inbound)</h1>
+                                    <h2 class="fs-sm lh-base fw-medium text-muted mb-0">Conferência de entrada de NF-e de fornecedores, leitura de códigos e direcionamento (Putaway)</h2>
+                                </div>
+                                <div class="mt-3 mt-sm-0 ms-sm-3 d-flex gap-2 flex-wrap">
+                                    <button class="btn btn-sm btn-alt-primary" onclick="App.modalNovoRecebimentoManual()">
+                                        <i class="fa-solid fa-plus me-1"></i> Entrada Manual
+                                    </button>
+                                    <button class="btn btn-sm btn-primary" onclick="App.modalUploadXmlNfe()">
+                                        <i class="fa-solid fa-file-arrow-up me-1"></i> Importar XML de NF-e
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="content">
+                        <!-- Inbound KPI Cards -->
+                        <div class="row items-push">
+                            <div class="col-6 col-md-3">
+                                <div class="block block-rounded d-flex flex-column h-100 mb-0">
+                                    <div class="block-content block-content-full flex-grow-1 d-flex justify-content-between align-items-center">
+                                        <dl class="mb-0">
+                                            <dt class="fs-3 fw-bold" id="kpiRecTotal">0</dt>
+                                            <dd class="fs-sm fw-medium text-muted mb-0">Total de Entradas</dd>
+                                        </dl>
+                                        <div class="item item-rounded-lg bg-primary-light">
+                                            <i class="fa-solid fa-truck-ramp-box fs-3 text-primary"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="block block-rounded d-flex flex-column h-100 mb-0">
+                                    <div class="block-content block-content-full flex-grow-1 d-flex justify-content-between align-items-center">
+                                        <dl class="mb-0">
+                                            <dt class="fs-3 fw-bold text-warning" id="kpiRecPendentes">0</dt>
+                                            <dd class="fs-sm fw-medium text-muted mb-0">Entradas Pendentes</dd>
+                                        </dl>
+                                        <div class="item item-rounded-lg bg-warning-light">
+                                            <i class="fa-solid fa-clock fs-3 text-warning"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="block block-rounded d-flex flex-column h-100 mb-0">
+                                    <div class="block-content block-content-full flex-grow-1 d-flex justify-content-between align-items-center">
+                                        <dl class="mb-0">
+                                            <dt class="fs-3 fw-bold text-info" id="kpiRecEmConferencia">0</dt>
+                                            <dd class="fs-sm fw-medium text-muted mb-0">Em Conferência</dd>
+                                        </dl>
+                                        <div class="item item-rounded-lg bg-info-light">
+                                            <i class="fa-solid fa-barcode fs-3 text-info"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="block block-rounded d-flex flex-column h-100 mb-0">
+                                    <div class="block-content block-content-full flex-grow-1 d-flex justify-content-between align-items-center">
+                                        <dl class="mb-0">
+                                            <dt class="fs-3 fw-bold text-success" id="kpiRecConferidos">0</dt>
+                                            <dd class="fs-sm fw-medium text-muted mb-0">Conferidos / Guardados</dd>
+                                        </dl>
+                                        <div class="item item-rounded-lg bg-success-light">
+                                            <i class="fa-solid fa-circle-check fs-3 text-success"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Filter Block -->
+                        <div class="block block-rounded mb-3">
+                            <div class="block-content p-3">
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-md-6">
+                                        <label class="form-label fs-sm" for="filtroRecBusca"><i class="fa-solid fa-magnifying-glass me-1"></i> Buscar Entrada</label>
+                                        <input type="text" id="filtroRecBusca" class="form-control form-control-sm" placeholder="Número NF, Fornecedor, Chave..." oninput="App.carregarRecebimentos()">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fs-sm" for="filtroRecStatus"><i class="fa-solid fa-filter me-1"></i> Status</label>
+                                        <select id="filtroRecStatus" class="form-select form-select-sm" onchange="App.carregarRecebimentos()">
+                                            <option value="">Todos os Status</option>
+                                            <option value="pendente">Pendente</option>
+                                            <option value="em_conferencia">Em Conferência</option>
+                                            <option value="conferido">Conferido</option>
+                                            <option value="divergencia">Com Divergência</option>
+                                            <option value="armazenado">Armazenado (Putaway Concluído)</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <button class="btn btn-sm btn-alt-secondary w-100" onclick="App.limparFiltrosRecebimento()">
+                                            <i class="fa-solid fa-rotate-left me-1"></i> Limpar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Receipts Table Block -->
+                        <div class="block block-rounded">
+                            <div class="block-content block-content-full p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-vcenter table-hover fs-sm mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Documento / NF-e</th>
+                                                <th>Fornecedor</th>
+                                                <th>Emissão / Chegada</th>
+                                                <th>Progresso da Entrada</th>
+                                                <th>Status</th>
+                                                <th>Operador</th>
+                                                <th class="text-end">Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="recebimentosTableBody">
+                                            <!-- Gerado via JS -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Inbound Active Conference Container -->
+                <div id="recebimentoAtivoContainer" class="content" style="display: none;">
+                    <div class="row items-push">
+                        <!-- Left Column: Scanner, Barcode, Controls -->
+                        <div class="col-12 col-xl-4">
+                            <!-- Inbound Scanner Block -->
+                            <div class="block block-rounded mb-3">
+                                <div class="block-header block-header-default py-2">
+                                    <h3 class="block-title fs-sm">
+                                        <i class="fa-solid fa-camera text-primary me-1"></i> Leitor Câmera (Entrada)
+                                    </h3>
+                                    <div class="block-options">
+                                        <button class="btn btn-sm btn-alt-secondary" id="btnTorchRec" onclick="App.toggleTorch()" title="Lanterna">
+                                            <i class="fa-solid fa-bolt"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-alt-secondary" id="btnSwitchCameraRec" onclick="App.switchCamera()" title="Alternar Câmera">
+                                            <i class="fa-solid fa-camera-rotate"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="block-content p-2">
+                                    <div class="camera-container mb-2">
+                                        <div id="readerRec"></div>
+                                        <div class="scan-laser" id="scanLaserRec" style="display: none;"></div>
+                                    </div>
+                                    <button class="btn btn-sm btn-success w-100" id="btnStartCamRec" onclick="App.startCameraRecebimento()">
+                                        <i class="fa-solid fa-play me-1"></i> Ativar Câmera
+                                    </button>
+                                    <button class="btn btn-sm btn-danger w-100" id="btnStopCamRec" style="display: none;" onclick="App.stopCamera()">
+                                        <i class="fa-solid fa-stop me-1"></i> Parar Câmera
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Manual Scan Inbound -->
+                            <div class="block block-rounded mb-3">
+                                <div class="block-header block-header-default py-2">
+                                    <h3 class="block-title fs-sm">
+                                        <i class="fa-solid fa-barcode text-primary me-1"></i> Bipagem de Entrada / Leitor USB
+                                    </h3>
+                                </div>
+                                <div class="block-content p-3">
+                                    <div class="input-group mb-2">
+                                        <input type="text" id="inputManualBarcodeRec" class="form-control font-mono" placeholder="Bipe EAN ou digite SKU..." autofocus>
+                                        <button class="btn btn-primary" onclick="App.biparRecebimentoManual()" title="Confirmar Bipagem">
+                                            <i class="fa-solid fa-check"></i>
+                                        </button>
+                                    </div>
+                                    <div id="scanStatusBannerRec" class="alert alert-success fs-xs py-2 px-3 mb-2 text-center" style="display: none;"></div>
+                                    <p class="fs-xs text-muted mb-0">
+                                        <i class="fa-solid fa-circle-info text-info me-1"></i> A conferência de entrada valida a quantidade exata da nota fiscal.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Inbound Recent Scan Logs -->
+                            <div class="block block-rounded mb-3">
+                                <div class="block-header block-header-default py-2">
+                                    <h3 class="block-title fs-sm">
+                                        <i class="fa-solid fa-list-check text-primary me-1"></i> Últimas Bipagens
+                                    </h3>
+                                </div>
+                                <div class="block-content p-3" id="listaLogsRecebimentoContainer" style="max-height: 220px; overflow-y: auto;">
+                                    <span class="text-muted fs-xs text-center d-block py-2">Nenhuma bipagem registrada ainda.</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Column: Inbound Hero & Items List -->
+                        <div class="col-12 col-xl-8">
+                            <!-- Hero Inbound Block -->
+                            <div class="block block-rounded mb-3">
+                                <div class="block-header block-header-default">
+                                    <div>
+                                        <h3 class="block-title d-flex align-items-center gap-2">
+                                            <span>NF-e #<span id="lblRecNumDoc">---</span></span>
+                                            <span class="badge badge-progress fs-xs" id="lblRecStatusBadge">Em Conferência</span>
+                                        </h3>
+                                        <span class="text-muted fs-xs d-block mt-1">
+                                            <i class="fa-solid fa-building me-1"></i> <span id="lblRecFornecedor">---</span>
+                                        </span>
+                                    </div>
+                                    <div class="block-options d-flex gap-1 flex-wrap">
+                                        <button class="btn btn-sm btn-alt-secondary" onclick="App.fecharConferenciaRecebimento()" title="Voltar à Lista">
+                                            <i class="fa-solid fa-arrow-left me-1"></i> Voltar
+                                        </button>
+                                        <button class="btn btn-sm btn-alt-info" onclick="App.modalPutawayGuarda()" id="btnGuiaPutaway" title="Guia de Armazenamento">
+                                            <i class="fa-solid fa-boxes-packing me-1"></i> Guia de Guarda (Putaway)
+                                        </button>
+                                        <button class="btn btn-sm btn-success" id="btnFinalizarRec" onclick="App.finalizarConferenciaRecebimento()">
+                                            <i class="fa-solid fa-check-double me-1"></i> Finalizar Conferência
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="block-content p-3 border-top">
+                                    <div class="d-flex justify-content-between align-items-center mb-1 fs-sm">
+                                        <span class="fw-semibold">Progresso: <strong id="lblRecQtdConferida" class="text-primary">0</strong> de <span id="lblRecQtdEsperada">0</span> unidades</span>
+                                        <span id="lblRecPorcentagem" class="fw-bold text-success">0%</span>
+                                    </div>
+                                    <div class="picking-progress-bar">
+                                        <div class="picking-progress-bar-fill" id="recProgressBarFill" style="width: 0%;"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Inbound Items List -->
+                            <div class="items-card-list" id="itensRecebimentoList">
+                                <!-- Gerado via JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </main>
 
         <!-- ===================================================================
@@ -1268,6 +1678,349 @@
                         <button type="submit" class="btn btn-sm btn-danger"><i class="fa-solid fa-ban me-1"></i> Confirmar Cancelamento</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Novo / Editar Local de Armazenagem -->
+    <div class="modal-overlay" id="modalLocal">
+        <div class="modal-card" style="max-width: 550px;">
+            <div class="modal-header">
+                <h3 id="modalLocalTitulo"><i class="fa-solid fa-warehouse text-primary"></i> Nova Posição de Armazém</h3>
+                <button class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="formLocal" onsubmit="App.salvarLocal(event)">
+                    <input type="hidden" id="localId" value="">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fs-sm" for="localArmazem"><i class="fa-solid fa-building me-1"></i> Armazém / Galpão</label>
+                            <input type="text" id="localArmazem" class="form-control" placeholder="Ex: Principal" value="Principal" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fs-sm" for="localTipo"><i class="fa-solid fa-layer-group me-1"></i> Tipo de Posição</label>
+                            <select id="localTipo" class="form-select" required>
+                                <option value="picking">Picking (Separação Rápida)</option>
+                                <option value="pulmao">Pulmão / Reserva Alta</option>
+                                <option value="quarentena">Quarentena / Inspeção</option>
+                                <option value="avarias">Avarias / Danificados</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-3">
+                            <label class="form-label fs-sm" for="localRua"><i class="fa-solid fa-signs-post me-1"></i> Rua</label>
+                            <input type="text" id="localRua" class="form-control font-mono text-center" placeholder="A" maxlength="3" required oninput="App.atualizarCodigoPreview()">
+                        </div>
+                        <div class="col-3">
+                            <label class="form-label fs-sm" for="localEstante"><i class="fa-solid fa-bars me-1"></i> Estante</label>
+                            <input type="text" id="localEstante" class="form-control font-mono text-center" placeholder="01" maxlength="3" required oninput="App.atualizarCodigoPreview()">
+                        </div>
+                        <div class="col-3">
+                            <label class="form-label fs-sm" for="localNivel"><i class="fa-solid fa-layer-group me-1"></i> Nível</label>
+                            <input type="text" id="localNivel" class="form-control font-mono text-center" placeholder="01" maxlength="3" required oninput="App.atualizarCodigoPreview()">
+                        </div>
+                        <div class="col-3">
+                            <label class="form-label fs-sm" for="localPosicao"><i class="fa-solid fa-bullseye me-1"></i> Vão</label>
+                            <input type="text" id="localPosicao" class="form-control font-mono text-center" placeholder="01" maxlength="3" required oninput="App.atualizarCodigoPreview()">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fs-sm" for="localCodigo"><i class="fa-solid fa-barcode me-1"></i> Código Formatado da Posição</label>
+                        <input type="text" id="localCodigo" class="form-control font-mono bg-body-light" placeholder="Ex: A-01-01-01" required>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fs-sm" for="localCapacidade"><i class="fa-solid fa-boxes-stacked me-1"></i> Capacidade Máx. (Unid)</label>
+                            <input type="number" step="1" id="localCapacidade" class="form-control" placeholder="0 = Ilimitado">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fs-sm" for="localPesoMax"><i class="fa-solid fa-weight-hanging me-1"></i> Peso Máximo (KG)</label>
+                            <input type="number" step="0.1" id="localPesoMax" class="form-control" placeholder="Ex: 500">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fs-sm" for="localObservacoes"><i class="fa-solid fa-comment me-1"></i> Observações / Referência</label>
+                        <input type="text" id="localObservacoes" class="form-control" placeholder="Ex: Próximo à porta de expedição...">
+                    </div>
+                    <div class="modal-footer p-0 pt-3 bg-transparent border-0">
+                        <button type="button" class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()">Cancelar</button>
+                        <button type="submit" class="btn btn-sm btn-primary" id="btnSalvarLocal">
+                            <i class="fa-solid fa-floppy-disk me-1"></i> Salvar Posição
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Gerar Posições em Lote -->
+    <div class="modal-overlay" id="modalGerarLocaisLote">
+        <div class="modal-card" style="max-width: 580px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-bolt text-primary"></i> Gerador de Posições em Lote</h3>
+                <button class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="formGerarLocaisLote" onsubmit="App.executarGerarLocaisLote(event)">
+                    <div class="alert alert-info fs-xs mb-3">
+                        <i class="fa-solid fa-circle-info me-1"></i> Crie rapidamente módulos inteiros de prateleiras no formato <code>{RUA}-{ESTANTE}-{NÍVEL}-{VÃO}</code>.
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fs-sm" for="loteArmazem">Armazém</label>
+                            <input type="text" id="loteArmazem" class="form-control" value="Principal" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fs-sm" for="loteTipo">Tipo de Posição</label>
+                            <select id="loteTipo" class="form-select" required>
+                                <option value="picking">Picking</option>
+                                <option value="pulmao">Pulmão / Reserva</option>
+                                <option value="quarentena">Quarentena</option>
+                                <option value="avarias">Avarias</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-6">
+                            <label class="form-label fs-sm" for="loteRuaInicio">Rua Inicial (Letra)</label>
+                            <input type="text" id="loteRuaInicio" class="form-control font-mono text-center" value="A" maxlength="1" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fs-sm" for="loteRuaFim">Rua Final (Letra)</label>
+                            <input type="text" id="loteRuaFim" class="form-control font-mono text-center" value="B" maxlength="1" required>
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-4">
+                            <label class="form-label fs-sm" for="loteEstanteFim">Estantes (1 até N)</label>
+                            <input type="number" id="loteEstanteFim" class="form-control font-mono text-center" value="5" min="1" max="99" required>
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label fs-sm" for="loteNivelFim">Níveis / Andares (1 até N)</label>
+                            <input type="number" id="loteNivelFim" class="form-control font-mono text-center" value="4" min="1" max="99" required>
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label fs-sm" for="lotePosicaoFim">Vãos por Nível</label>
+                            <input type="number" id="lotePosicaoFim" class="form-control font-mono text-center" value="2" min="1" max="99" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer p-0 pt-3 bg-transparent border-0">
+                        <button type="button" class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()">Cancelar</button>
+                        <button type="submit" class="btn btn-sm btn-primary">
+                            <i class="fa-solid fa-wand-magic-sparkles me-1"></i> Gerar Posições
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Atribuir Produto ao Local -->
+    <div class="modal-overlay" id="modalAtribuirProdutoLocal">
+        <div class="modal-card" style="max-width: 520px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-tags text-primary"></i> Vincular SKU à Posição</h3>
+                <button class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="formAtribuirProduto" onsubmit="App.salvarAtribuicaoProdutoLocal(event)">
+                    <input type="hidden" id="atribuirLocalId" value="">
+                    <div class="mb-3">
+                        <label class="form-label fs-sm">Posição Selecionada</label>
+                        <div class="form-control font-mono bg-body-light fw-bold" id="lblAtribuirLocalCodigo">---</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fs-sm" for="atribuirSku"><i class="fa-solid fa-barcode me-1"></i> Código do Produto (SKU)</label>
+                        <input type="text" id="atribuirSku" class="form-control font-mono" placeholder="Digite o SKU (ex: RP0001)..." required autofocus>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fs-sm" for="atribuirNome"><i class="fa-solid fa-font me-1"></i> Descrição do Produto (Opcional)</label>
+                        <input type="text" id="atribuirNome" class="form-control" placeholder="Nome do produto...">
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fs-sm" for="atribuirTipo"><i class="fa-solid fa-layer-group me-1"></i> Tipo de Vínculo</label>
+                            <select id="atribuirTipo" class="form-select" required>
+                                <option value="principal">Principal (Picking)</option>
+                                <option value="reserva">Reserva (Pulmão)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fs-sm" for="atribuirQuantidade"><i class="fa-solid fa-cubes me-1"></i> Saldo Inicial em Estoque</label>
+                            <input type="number" step="1" id="atribuirQuantidade" class="form-control" value="0" min="0">
+                        </div>
+                    </div>
+                    <div class="modal-footer p-0 pt-3 bg-transparent border-0">
+                        <button type="button" class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()">Cancelar</button>
+                        <button type="submit" class="btn btn-sm btn-primary">
+                            <i class="fa-solid fa-check me-1"></i> Salvar Vínculo
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Upload XML de NF-e -->
+    <div class="modal-overlay" id="modalUploadXmlNfe">
+        <div class="modal-card" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-file-arrow-up text-primary"></i> Importar NF-e de Compra (XML)</h3>
+                <button class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="formUploadXmlNfe" onsubmit="App.executarUploadXmlNfe(event)">
+                    <!-- Drag & Drop Zone -->
+                    <div class="dropzone-xml" id="dropzoneXml" onclick="document.getElementById('fileXmlNfe').click()">
+                        <i class="fa-solid fa-cloud-arrow-up fa-3x text-primary mb-2"></i>
+                        <h4 class="fs-base fw-bold mb-1">Arraste seu arquivo XML aqui</h4>
+                        <p class="fs-xs text-muted mb-2">Ou clique para selecionar o XML da Nota Fiscal</p>
+                        <span class="badge bg-primary-light text-primary" id="lblXmlNomeArquivo">Nenhum arquivo selecionado</span>
+                        <input type="file" id="fileXmlNfe" accept=".xml" style="display: none;" onchange="App.onArquivoXmlSelecionado(this)">
+                    </div>
+
+                    <div class="my-3 text-center">
+                        <span class="text-muted fs-xs">--- OU COLE O CONTEÚDO XML ABAIXO ---</span>
+                    </div>
+
+                    <div class="mb-3">
+                        <textarea id="txtXmlNfe" class="form-control font-mono fs-xs" rows="4" placeholder="<NFe xmlns=..."></textarea>
+                    </div>
+
+                    <div class="modal-footer p-0 pt-3 bg-transparent border-0">
+                        <button type="button" class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()">Cancelar</button>
+                        <button type="submit" class="btn btn-sm btn-primary" id="btnProcessarXmlNfe">
+                            <i class="fa-solid fa-bolt me-1"></i> Processar & Importar Itens
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Novo Recebimento Manual -->
+    <div class="modal-overlay" id="modalRecebimentoManual">
+        <div class="modal-card" style="max-width: 700px; width: 95%;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-truck-ramp-box text-primary"></i> Nova Ordem de Recebimento Manual</h3>
+                <button class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="formRecebimentoManual" onsubmit="App.salvarRecebimentoManual(event)">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fs-sm" for="manNumDoc"><i class="fa-solid fa-file-invoice me-1"></i> Número do Documento / Pedido</label>
+                            <input type="text" id="manNumDoc" class="form-control" placeholder="Ex: NF-12345 ou PC-998" required autofocus>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fs-sm" for="manFornNome"><i class="fa-solid fa-building me-1"></i> Nome do Fornecedor</label>
+                            <input type="text" id="manFornNome" class="form-control" placeholder="Ex: Fornecedor ABC Ltda" required>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label class="form-label fs-sm mb-0 fw-bold"><i class="fa-solid fa-boxes-stacked me-1"></i> Itens da Ordem de Recebimento</label>
+                        <button type="button" class="btn btn-xs btn-alt-primary" onclick="App.adicionarLinhaItemManual()">
+                            <i class="fa-solid fa-plus me-1"></i> Adicionar Linha
+                        </button>
+                    </div>
+
+                    <div class="table-responsive mb-3" style="max-height: 250px; overflow-y: auto;">
+                        <table class="table table-sm table-bordered fs-xs mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>SKU / Código</th>
+                                    <th>EAN (Código de Barras)</th>
+                                    <th>Descrição do Item</th>
+                                    <th style="width: 90px;">Qtd</th>
+                                    <th style="width: 40px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelaItensManualBody">
+                                <!-- Linhas dinâmicas -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="modal-footer p-0 pt-3 bg-transparent border-0">
+                        <button type="button" class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()">Cancelar</button>
+                        <button type="submit" class="btn btn-sm btn-primary">
+                            <i class="fa-solid fa-check me-1"></i> Criar Ordem de Recebimento
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Guia de Guarda (Putaway) -->
+    <div class="modal-overlay" id="modalPutaway">
+        <div class="modal-card" style="max-width: 850px; width: 95%; max-height: 90vh;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-boxes-packing text-primary"></i> Guia de Armazenagem & Putaway</h3>
+                <button class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" style="overflow-y: auto;">
+                <div class="alert alert-success fs-xs mb-3">
+                    <i class="fa-solid fa-circle-check me-1"></i> Itens conferidos na entrada. Confirme os locais de guarda para alimentar os saldos de estoque nas prateleiras.
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-striped table-vcenter fs-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Produto</th>
+                                <th>Qtd Conferida</th>
+                                <th>Posição Sugerida</th>
+                                <th>Confirmar Posição</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelaPutawayBody">
+                            <!-- Gerado dinamicamente via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()">Fechar</button>
+                <button type="button" class="btn btn-sm btn-primary" onclick="App.confirmarPutaway()">
+                    <i class="fa-solid fa-check-double me-1"></i> Concluir Guarda & Atualizar Estoque
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Impressão de Etiquetas de Prateleira -->
+    <div class="modal-overlay" id="modalEtiquetasLocais">
+        <div class="modal-card" style="max-width: 650px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-barcode text-primary"></i> Etiquetas de Prateleira (Localização)</h3>
+                <button class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fs-sm" for="etqArmazem">Armazém</label>
+                        <select id="etqArmazem" class="form-select form-select-sm" onchange="App.carregarPreviaEtiquetas()">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fs-sm" for="etqRua">Rua</label>
+                        <select id="etqRua" class="form-select form-select-sm" onchange="App.carregarPreviaEtiquetas()">
+                            <option value="">Todas</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="border rounded p-3 bg-light text-center" style="max-height: 260px; overflow-y: auto;" id="etiquetasPreviaContainer">
+                    <!-- Previa das etiquetas -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()">Cancelar</button>
+                <button type="button" class="btn btn-sm btn-primary" onclick="App.imprimirEtiquetasLocais()">
+                    <i class="fa-solid fa-print me-1"></i> Imprimir Etiquetas
+                </button>
             </div>
         </div>
     </div>

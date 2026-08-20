@@ -667,7 +667,31 @@ function retornarDadosConferencia(int $conferenciaId, string $mensagem = '', arr
     $stmtConf->execute([$conferenciaId]);
     $conf = $stmtConf->fetch();
 
-    $stmtItens = $db->prepare("SELECT * FROM conferencia_itens WHERE conferencia_id = ? ORDER BY id ASC");
+    // Buscar itens da conferência enriquecidos com o endereço principal de armazenagem (Slotting) e ordenados pela rota
+    $sqlItens = "
+        SELECT 
+            ci.*,
+            l.codigo AS local_codigo,
+            l.armazem AS local_armazem,
+            l.rua AS local_rua,
+            l.estante AS local_estante,
+            l.nivel AS local_nivel,
+            l.posicao AS local_posicao,
+            l.tipo AS local_tipo
+        FROM conferencia_itens ci
+        LEFT JOIN produtos_enderecos pe ON pe.codigo_produto = ci.codigo_produto AND pe.tipo = 'principal'
+        LEFT JOIN locais_armazenagem l ON l.id = pe.local_id
+        WHERE ci.conferencia_id = ?
+        ORDER BY 
+            CASE WHEN l.codigo IS NOT NULL THEN 0 ELSE 1 END,
+            l.armazem ASC,
+            l.rua ASC,
+            l.estante ASC,
+            l.nivel ASC,
+            l.posicao ASC,
+            ci.id ASC
+    ";
+    $stmtItens = $db->prepare($sqlItens);
     $stmtItens->execute([$conferenciaId]);
     $itens = $stmtItens->fetchAll();
 

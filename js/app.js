@@ -47,6 +47,15 @@ const App = {
             });
         }
 
+        const inputManualRec = document.getElementById('inputManualBarcodeRec');
+        if (inputManualRec) {
+            inputManualRec.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.biparRecebimentoManual();
+                }
+            });
+        }
+
         // Verificar se há uma sessão de login ativa
         this.checkSession().then(authenticated => {
             if (authenticated) {
@@ -199,7 +208,9 @@ const App = {
         const navMap = {
             'pedidos': this.hasPermission('pedidos_visualizar'),
             'conferencia': this.hasPermission('conferencia_bipar') || this.hasPermission('pedidos_iniciar_separacao'),
+            'recebimento': this.hasPermission('recebimento_visualizar'),
             'historico': this.hasPermission('historico_visualizar'),
+            'locais': this.hasPermission('locais_visualizar'),
             'eans': this.hasPermission('eans_visualizar'),
             'usuarios': this.hasPermission('usuarios_visualizar'),
             'config': this.hasPermission('config_visualizar')
@@ -326,7 +337,9 @@ const App = {
         if (this.currentUser) {
             const permMap = {
                 'pedidos': 'pedidos_visualizar',
+                'recebimento': 'recebimento_visualizar',
                 'historico': 'historico_visualizar',
+                'locais': 'locais_visualizar',
                 'eans': 'eans_visualizar',
                 'usuarios': 'usuarios_visualizar',
                 'config': 'config_visualizar'
@@ -368,8 +381,14 @@ const App = {
                 document.getElementById('conferenciaVazia').style.display = 'none';
                 document.getElementById('conferenciaAtivaContainer').style.display = 'grid';
             }
+        } else if (viewName === 'recebimento') {
+            this.carregarRecebimentos();
+            this.stopCamera();
         } else if (viewName === 'historico') {
             this.carregarHistorico();
+            this.stopCamera();
+        } else if (viewName === 'locais') {
+            this.carregarLocais();
             this.stopCamera();
         } else if (viewName === 'eans') {
             this.carregarEans();
@@ -723,7 +742,10 @@ const App = {
                 <div class="item-picking-card ${cardStatusClass}" id="item-card-${it.codigo_produto}">
                     <div class="item-details">
                         <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.35rem;">
-                            <h4>${it.descricao}</h4>
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <h4 class="mb-0">${it.descricao}</h4>
+                                ${it.local_codigo ? `<span class="loc-badge loc-badge-picking" title="Localização no Armazém: ${it.local_armazem || 'Principal'} (Rua ${it.local_rua}, Est ${it.local_estante}, Nv ${it.local_nivel}, Vão ${it.local_posicao})"><i class="fa-solid fa-location-dot"></i> ${it.local_codigo}</span>` : '<span class="badge bg-body-secondary text-muted border fs-xs"><i class="fa-solid fa-location-cross"></i> Sem Local</span>'}
+                            </div>
                             ${statusBadgeHtml}
                         </div>
                         <div class="item-meta">
@@ -803,8 +825,14 @@ const App = {
     },
 
     async handleBarcodeScan(code, type = 'camera') {
+        // Se estiver na tela de recebimento ativo
+        if (this.currentView === 'recebimento' && this.recebimentoAtivo) {
+            this.biparRecebimento(code, type);
+            return;
+        }
+
         if (!this.conferenciaAtiva || !this.conferenciaAtiva.conferencia) {
-            this.toast('Abra um pedido para bipar itens.', 'warning');
+            this.toast('Abra um pedido ou recebimento para bipar itens.', 'warning');
             this.showScanFeedback('Abra um pedido para bipar itens.', 'warning');
             return;
         }
@@ -2431,7 +2459,1059 @@ const App = {
         }
     },
 
-    // --- TOAST NOTIFICATIONS ---
+    // =========================================================================
+    // MÓDULO 7: ENDEREÇAMENTO DE ARMAZÉM & SLOTTING (LOCAIS)
+    // =========================================================================
+    locaisCache: [],
+
+    async carregarLocais() {
+        const busca = document.getElementById('filtroLocaisBusca')?.value || '';
+        const armazem = document.getElementById('filtroLocaisArmazem')?.value || '';
+        const rua = document.getElementById('filtroLocaisRua')?.value || '';
+        const tipo = document.getElementById('filtroLocaisTipo')?.value || '';
+
+        const tbody = document.getElementById('locaisTableBody');
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center py-4 text-muted">
+                        <i class="fa-solid fa-spinner fa-spin fa-2x mb-2"></i><br>Carregando posições de armazém...
+                    </td>
+                </tr>
+            `;
+        }
+
+        try {
+            const params = new URLSearchParams({
+                busca, armazem, rua, tipo, limite: 200
+            });
+            const res = await fetch(`api/locais.php?action=listar&${params.toString()}`);
+            const data = await res.json();
+
+            if (!data.success) {
+                if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">${data.error || 'Erro ao carregar locais.'}</td></tr>`;
+                return;
+            }
+
+            this.locaisCache = data.locais || [];
+
+            // Preencher selects de filtros se vazios
+            const selArm = document.getElementById('filtroLocaisArmazem');
+            if (selArm && selArm.options.length <= 1 && data.filtro_armazens) {
+                data.filtro_armazens.forEach(a => {
+                    const opt = document.createElement('option');
+                    opt.value = a;
+                    opt.textContent = a;
+                    selArm.appendChild(opt);
+                });
+            }
+
+            const selRua = document.getElementById('filtroLocaisRua');
+            if (selRua && selRua.options.length <= 1 && data.filtro_ruas) {
+                data.filtro_ruas.forEach(r => {
+                    const opt = document.createElement('option');
+                    opt.value = r;
+                    opt.textContent = `Rua ${r}`;
+                    selRua.appendChild(opt);
+                });
+            }
+
+            // Atualizar KPIs
+            let totalLocais = this.locaisCache.length;
+            let totalPicking = 0;
+            let totalPulmao = 0;
+            let totalSkus = 0;
+
+            this.locaisCache.forEach(l => {
+                if (l.tipo === 'picking') totalPicking++;
+                if (l.tipo === 'pulmao') totalPulmao++;
+                totalSkus += parseInt(l.total_skus || 0);
+            });
+
+            const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+            setVal('kpiTotalLocais', totalLocais);
+            setVal('kpiLocaisPicking', totalPicking);
+            setVal('kpiLocaisPulmao', totalPulmao);
+            setVal('kpiSkusAlocados', totalSkus);
+
+            if (!this.locaisCache || this.locaisCache.length === 0) {
+                if (tbody) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">
+                                <i class="fa-solid fa-warehouse fa-2x mb-2 opacity-50"></i><br>Nenhuma posição de armazém encontrada.
+                            </td>
+                        </tr>
+                    `;
+                }
+                return;
+            }
+
+            let html = '';
+            this.locaisCache.forEach(l => {
+                const tipoBadgeClass = {
+                    'picking': 'loc-badge-picking',
+                    'pulmao': 'loc-badge-pulmao',
+                    'quarentena': 'loc-badge-quarentena',
+                    'avarias': 'loc-badge-avarias'
+                }[l.tipo] || 'badge-pending';
+
+                const tipoLabel = {
+                    'picking': 'Picking',
+                    'pulmao': 'Pulmão',
+                    'quarentena': 'Quarentena',
+                    'avarias': 'Avarias'
+                }[l.tipo] || l.tipo;
+
+                const statusHtml = (l.status === 'ativo') 
+                    ? '<span class="badge bg-success-light text-success">Ativo</span>' 
+                    : '<span class="badge bg-danger-light text-danger">Inativo</span>';
+
+                html += `
+                    <tr>
+                        <td>
+                            <span class="loc-badge ${tipoBadgeClass}">
+                                <i class="fa-solid fa-location-dot"></i> ${l.codigo}
+                            </span>
+                        </td>
+                        <td>
+                            <strong>${l.armazem || 'Principal'}</strong><br>
+                            <span class="text-muted fs-xs">Rua ${l.rua} • Est ${l.estante} • Nv ${l.nivel} • Vão ${l.posicao}</span>
+                        </td>
+                        <td>
+                            <span class="badge ${tipoBadgeClass}">${tipoLabel}</span>
+                        </td>
+                        <td>
+                            <span class="fw-bold">${l.total_skus || 0}</span> SKU(s)
+                        </td>
+                        <td>
+                            <strong>${parseFloat(l.total_unidades || 0)}</strong> un
+                            ${parseFloat(l.capacidade_maxima || 0) > 0 ? `<span class="text-muted fs-xs">/ ${l.capacidade_maxima}</span>` : ''}
+                        </td>
+                        <td>${statusHtml}</td>
+                        <td class="text-end">
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-alt-primary" onclick="App.modalAtribuirProdutoLocal(${l.id}, '${l.codigo}')" title="Vincular / Ajustar SKU">
+                                    <i class="fa-solid fa-tags"></i>
+                                </button>
+                                <button class="btn btn-alt-secondary" onclick="App.imprimirEtiquetaUnicaLocal(${l.id}, '${l.codigo}', '${l.armazem}', '${l.rua}')" title="Imprimir Etiqueta">
+                                    <i class="fa-solid fa-print"></i>
+                                </button>
+                                <button class="btn btn-alt-secondary" onclick="App.modalEditarLocal(${l.id})" title="Editar Posição">
+                                    <i class="fa-solid fa-pencil"></i>
+                                </button>
+                                <button class="btn btn-alt-danger" onclick="App.excluirLocal(${l.id}, '${l.codigo}')" title="Excluir Posição">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            if (tbody) tbody.innerHTML = html;
+        } catch (e) {
+            console.error('Erro ao carregar locais:', e);
+            if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">Erro de conexão ao carregar posições.</td></tr>`;
+        }
+    },
+
+    limparFiltrosLocais() {
+        const b = document.getElementById('filtroLocaisBusca'); if (b) b.value = '';
+        const a = document.getElementById('filtroLocaisArmazem'); if (a) a.value = '';
+        const r = document.getElementById('filtroLocaisRua'); if (r) r.value = '';
+        const t = document.getElementById('filtroLocaisTipo'); if (t) t.value = '';
+        this.carregarLocais();
+    },
+
+    modalNovoLocal(id = null) {
+        document.getElementById('formLocal')?.reset();
+        document.getElementById('localId').value = '';
+        document.getElementById('modalLocalTitulo').innerHTML = '<i class="fa-solid fa-warehouse text-primary"></i> Nova Posição de Armazém';
+        document.getElementById('modalLocal').classList.add('active');
+        document.getElementById('localRua')?.focus();
+    },
+
+    modalEditarLocal(id) {
+        const local = this.locaisCache.find(l => l.id == id);
+        if (!local) return;
+
+        document.getElementById('localId').value = local.id;
+        document.getElementById('localArmazem').value = local.armazem || 'Principal';
+        document.getElementById('localTipo').value = local.tipo || 'picking';
+        document.getElementById('localRua').value = local.rua || '';
+        document.getElementById('localEstante').value = local.estante || '';
+        document.getElementById('localNivel').value = local.nivel || '';
+        document.getElementById('localPosicao').value = local.posicao || '';
+        document.getElementById('localCodigo').value = local.codigo || '';
+        document.getElementById('localCapacidade').value = local.capacidade_maxima || '';
+        document.getElementById('localPesoMax').value = local.peso_max_kg || '';
+        document.getElementById('localObservacoes').value = local.observacoes || '';
+
+        document.getElementById('modalLocalTitulo').innerHTML = `<i class="fa-solid fa-pencil text-primary"></i> Editar Posição: ${local.codigo}`;
+        document.getElementById('modalLocal').classList.add('active');
+    },
+
+    atualizarCodigoPreview() {
+        const rua = (document.getElementById('localRua')?.value || '').trim().toUpperCase();
+        const est = (document.getElementById('localEstante')?.value || '').trim().padStart(2, '0');
+        const niv = (document.getElementById('localNivel')?.value || '').trim().padStart(2, '0');
+        const pos = (document.getElementById('localPosicao')?.value || '').trim().padStart(2, '0');
+
+        if (rua && est && niv && pos) {
+            const codInput = document.getElementById('localCodigo');
+            if (codInput) codInput.value = `${rua}-${est}-${niv}-${pos}`;
+        }
+    },
+
+    async salvarLocal(e) {
+        if (e) e.preventDefault();
+
+        const id = document.getElementById('localId').value;
+        const armazem = document.getElementById('localArmazem').value.trim();
+        const tipo = document.getElementById('localTipo').value;
+        const rua = document.getElementById('localRua').value.trim();
+        const estante = document.getElementById('localEstante').value.trim();
+        const nivel = document.getElementById('localNivel').value.trim();
+        const posicao = document.getElementById('localPosicao').value.trim();
+        const codigo = document.getElementById('localCodigo').value.trim();
+        const capacidade_maxima = document.getElementById('localCapacidade').value;
+        const peso_max_kg = document.getElementById('localPesoMax').value;
+        const observacoes = document.getElementById('localObservacoes').value.trim();
+
+        try {
+            const res = await fetch('api/locais.php?action=salvar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id, armazem, tipo, rua, estante, nivel, posicao, codigo,
+                    capacidade_maxima, peso_max_kg, observacoes
+                })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                this.toast(data.message || 'Posição salva com sucesso!', 'success');
+                this.fecharModais();
+                this.carregarLocais();
+            } else {
+                this.toast(data.error || 'Erro ao salvar posição.', 'error');
+            }
+        } catch (err) {
+            console.error('Erro ao salvar local:', err);
+            this.toast('Erro de conexão ao salvar posição.', 'error');
+        }
+    },
+
+    modalGerarLocaisLote() {
+        document.getElementById('formGerarLocaisLote')?.reset();
+        document.getElementById('modalGerarLocaisLote').classList.add('active');
+    },
+
+    async executarGerarLocaisLote(e) {
+        if (e) e.preventDefault();
+
+        const armazem = document.getElementById('loteArmazem').value.trim();
+        const tipo = document.getElementById('loteTipo').value;
+        const rua_inicio = document.getElementById('loteRuaInicio').value.trim();
+        const rua_fim = document.getElementById('loteRuaFim').value.trim();
+        const estante_fim = document.getElementById('loteEstanteFim').value;
+        const nivel_fim = document.getElementById('loteNivelFim').value;
+        const posicao_fim = document.getElementById('lotePosicaoFim').value;
+
+        try {
+            const res = await fetch('api/locais.php?action=gerar_lote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    armazem, tipo, rua_inicio, rua_fim,
+                    estante_inicio: 1, estante_fim,
+                    nivel_inicio: 1, nivel_fim,
+                    posicao_inicio: 1, posicao_fim
+                })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                this.toast(data.message || 'Posições geradas com sucesso!', 'success');
+                this.fecharModais();
+                this.carregarLocais();
+            } else {
+                this.toast(data.error || 'Erro ao gerar posições.', 'error');
+            }
+        } catch (err) {
+            console.error('Erro ao gerar posições em lote:', err);
+            this.toast('Erro ao gerar posições em lote.', 'error');
+        }
+    },
+
+    modalAtribuirProdutoLocal(localId, localCodigo) {
+        document.getElementById('formAtribuirProduto')?.reset();
+        document.getElementById('atribuirLocalId').value = localId;
+        document.getElementById('lblAtribuirLocalCodigo').textContent = localCodigo;
+        document.getElementById('modalAtribuirProdutoLocal').classList.add('active');
+        document.getElementById('atribuirSku')?.focus();
+    },
+
+    async salvarAtribuicaoProdutoLocal(e) {
+        if (e) e.preventDefault();
+
+        const local_id = document.getElementById('atribuirLocalId').value;
+        const codigo_produto = document.getElementById('atribuirSku').value.trim();
+        const nome_produto = document.getElementById('atribuirNome').value.trim();
+        const tipo = document.getElementById('atribuirTipo').value;
+        const quantidade = document.getElementById('atribuirQuantidade').value;
+
+        try {
+            const res = await fetch('api/locais.php?action=atribuir_produto', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ local_id, codigo_produto, nome_produto, tipo, quantidade })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                this.toast(data.message || 'Produto vinculado à posição com sucesso!', 'success');
+                this.fecharModais();
+                this.carregarLocais();
+            } else {
+                this.toast(data.error || 'Erro ao vincular produto.', 'error');
+            }
+        } catch (err) {
+            console.error('Erro ao vincular produto:', err);
+            this.toast('Erro ao vincular produto ao local.', 'error');
+        }
+    },
+
+    async excluirLocal(id, codigo) {
+        if (!confirm(`Deseja realmente excluir a posição ${codigo}?`)) return;
+
+        try {
+            const res = await fetch('api/locais.php?action=excluir', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                this.toast(data.message || 'Posição excluída com sucesso.', 'success');
+                this.carregarLocais();
+            } else {
+                this.toast(data.error || 'Não foi possível excluir a posição.', 'error');
+            }
+        } catch (err) {
+            console.error('Erro ao excluir local:', err);
+            this.toast('Erro ao excluir posição.', 'error');
+        }
+    },
+
+    modalImprimirEtiquetasLocais() {
+        const selArm = document.getElementById('etqArmazem');
+        if (selArm) {
+            selArm.innerHTML = '<option value="">Todos os Armazéns</option>';
+            const armazens = [...new Set(this.locaisCache.map(l => l.armazem).filter(Boolean))];
+            armazens.forEach(a => {
+                const opt = document.createElement('option');
+                opt.value = a; opt.textContent = a;
+                selArm.appendChild(opt);
+            });
+        }
+
+        const selRua = document.getElementById('etqRua');
+        if (selRua) {
+            selRua.innerHTML = '<option value="">Todas as Ruas</option>';
+            const ruas = [...new Set(this.locaisCache.map(l => l.rua).filter(Boolean))];
+            ruas.forEach(r => {
+                const opt = document.createElement('option');
+                opt.value = r; opt.textContent = `Rua ${r}`;
+                selRua.appendChild(opt);
+            });
+        }
+
+        this.carregarPreviaEtiquetas();
+        document.getElementById('modalEtiquetasLocais').classList.add('active');
+    },
+
+    carregarPreviaEtiquetas() {
+        const armazem = document.getElementById('etqArmazem')?.value || '';
+        const rua = document.getElementById('etqRua')?.value || '';
+
+        const filtrados = this.locaisCache.filter(l => {
+            if (armazem && l.armazem !== armazem) return false;
+            if (rua && l.rua !== rua) return false;
+            return true;
+        });
+
+        const container = document.getElementById('etiquetasPreviaContainer');
+        if (container) {
+            if (filtrados.length === 0) {
+                container.innerHTML = '<span class="text-muted fs-xs">Nenhuma etiqueta encontrada para os filtros.</span>';
+                return;
+            }
+
+            let html = `<p class="fs-xs fw-bold text-muted mb-2">${filtrados.length} etiqueta(s) pronta(s) para impressão:</p><div class="d-flex flex-wrap justify-content-center">`;
+            filtrados.slice(0, 12).forEach(l => {
+                html += `
+                    <div class="shelf-label-card" style="width: 140px; padding: 6px; margin: 4px;">
+                        <div class="shelf-label-code" style="font-size: 0.9rem;">${l.codigo}</div>
+                        <div class="shelf-label-meta" style="font-size: 0.6rem;">${l.armazem || 'Principal'} • Rua ${l.rua}</div>
+                        <div class="shelf-label-barcode" style="font-size: 0.7rem;">*${l.codigo}*</div>
+                    </div>
+                `;
+            });
+            if (filtrados.length > 12) {
+                html += `<div class="w-100 text-muted fs-xs mt-2">+ mais ${filtrados.length - 12} posições na impressão.</div>`;
+            }
+            html += '</div>';
+            container.innerHTML = html;
+        }
+    },
+
+    imprimirEtiquetasLocais() {
+        const armazem = document.getElementById('etqArmazem')?.value || '';
+        const rua = document.getElementById('etqRua')?.value || '';
+
+        const filtrados = this.locaisCache.filter(l => {
+            if (armazem && l.armazem !== armazem) return false;
+            if (rua && l.rua !== rua) return false;
+            return true;
+        });
+
+        if (filtrados.length === 0) {
+            this.toast('Nenhum local para imprimir.', 'warning');
+            return;
+        }
+
+        const printArea = document.getElementById('printArea');
+        if (!printArea) return;
+
+        let html = '<div style="display:flex; flex-wrap:wrap; justify-content:flex-start; padding: 20px;">';
+        filtrados.forEach(l => {
+            html += `
+                <div class="shelf-label-card" style="width: 220px; padding: 10px; margin: 8px; border: 2px solid #000; text-align: center; font-family: sans-serif;">
+                    <div style="font-size: 10px; font-weight: bold; text-transform: uppercase; color: #555;">WMS PRIME • ${l.armazem || 'DEPÓSITO'}</div>
+                    <div style="font-size: 22px; font-weight: 900; font-family: monospace; letter-spacing: 1px; margin: 6px 0;">${l.codigo}</div>
+                    <div style="font-size: 11px; font-weight: 600;">Rua ${l.rua} | Estante ${l.estante} | Nível ${l.nivel} | Vão ${l.posicao}</div>
+                    <div style="font-family: monospace; font-size: 14px; background: #eee; padding: 4px; margin-top: 6px; letter-spacing: 2px; font-weight: bold;">*${l.codigo}*</div>
+                </div>
+            `;
+        });
+        html += '</div>';
+
+        printArea.innerHTML = html;
+        window.print();
+    },
+
+    imprimirEtiquetaUnicaLocal(id, codigo, armazem, rua) {
+        const printArea = document.getElementById('printArea');
+        if (!printArea) return;
+
+        printArea.innerHTML = `
+            <div style="padding: 30px; display: flex; justify-content: center;">
+                <div class="shelf-label-card" style="width: 320px; padding: 18px; border: 3px solid #000; text-align: center; font-family: sans-serif;">
+                    <div style="font-size: 12px; font-weight: bold; text-transform: uppercase; color: #555;">WMS PRIME • ${armazem || 'DEPÓSITO'}</div>
+                    <div style="font-size: 32px; font-weight: 900; font-family: monospace; letter-spacing: 2px; margin: 10px 0;">${codigo}</div>
+                    <div style="font-size: 14px; font-weight: bold;">RUA ${rua}</div>
+                    <div style="font-family: monospace; font-size: 18px; background: #eee; padding: 6px; margin-top: 10px; letter-spacing: 3px; font-weight: bold;">*${codigo}*</div>
+                </div>
+            </div>
+        `;
+        window.print();
+    },
+
+    // =========================================================================
+    // MÓDULO 8: RECEBIMENTO & INBOUND (ENTRADA DE MERCADORIAS)
+    // =========================================================================
+    recebimentosCache: [],
+    recebimentoAtivo: null,
+    scannerRec: null,
+
+    async carregarRecebimentos() {
+        const busca = document.getElementById('filtroRecBusca')?.value || '';
+        const status = document.getElementById('filtroRecStatus')?.value || '';
+
+        const tbody = document.getElementById('recebimentosTableBody');
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center py-4 text-muted">
+                        <i class="fa-solid fa-spinner fa-spin fa-2x mb-2"></i><br>Carregando notas e recebimentos...
+                    </td>
+                </tr>
+            `;
+        }
+
+        try {
+            const params = new URLSearchParams({ busca, status, limite: 100 });
+            const res = await fetch(`api/recebimento.php?action=listar&${params.toString()}`);
+            const data = await res.json();
+
+            if (!data.success) {
+                if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">${data.error || 'Erro ao carregar recebimentos.'}</td></tr>`;
+                return;
+            }
+
+            this.recebimentosCache = data.recebimentos || [];
+
+            // Atualizar KPIs
+            if (data.stats) {
+                const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+                setVal('kpiRecTotal', data.stats.total || 0);
+                setVal('kpiRecPendentes', data.stats.pendente || 0);
+                setVal('kpiRecEmConferencia', data.stats.em_conferencia || 0);
+                setVal('kpiRecConferidos', (data.stats.conferido || 0) + (data.stats.armazenado || 0));
+            }
+
+            if (!this.recebimentosCache || this.recebimentosCache.length === 0) {
+                if (tbody) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">
+                                <i class="fa-solid fa-truck-ramp-box fa-2x mb-2 opacity-50"></i><br>Nenhuma ordem de recebimento encontrada.
+                            </td>
+                        </tr>
+                    `;
+                }
+                return;
+            }
+
+            let html = '';
+            this.recebimentosCache.forEach(r => {
+                const statusBadge = {
+                    'pendente': '<span class="badge badge-pending"><i class="fa-regular fa-clock me-1"></i> Pendente</span>',
+                    'em_conferencia': '<span class="badge badge-progress"><i class="fa-solid fa-spinner fa-spin me-1"></i> Em Conferência</span>',
+                    'conferido': '<span class="badge badge-success"><i class="fa-solid fa-check me-1"></i> Conferido</span>',
+                    'divergencia': '<span class="badge bg-warning-light text-warning"><i class="fa-solid fa-triangle-exclamation me-1"></i> Divergência</span>',
+                    'armazenado': '<span class="badge bg-primary-light text-primary"><i class="fa-solid fa-boxes-packing me-1"></i> Guardado (Putaway)</span>'
+                }[r.status] || `<span class="badge badge-pending">${r.status}</span>`;
+
+                const dataFormatada = r.data_emissao ? new Date(r.data_emissao).toLocaleDateString('pt-BR') : '---';
+
+                html += `
+                    <tr>
+                        <td>
+                            <strong class="font-mono">NF #${r.numero_documento || 'S/N'}</strong>
+                            ${r.chave_nfe ? `<br><span class="text-muted fs-xs font-mono" title="${r.chave_nfe}">${r.chave_nfe.substring(0, 18)}...</span>` : ''}
+                        </td>
+                        <td>
+                            <strong>${r.fornecedor_nome || 'Fornecedor'}</strong><br>
+                            <span class="text-muted fs-xs">${r.fornecedor_cnpj || ''} ${r.fornecedor_uf ? `(${r.fornecedor_uf})` : ''}</span>
+                        </td>
+                        <td>
+                            <span class="fs-xs">${dataFormatada}</span>
+                        </td>
+                        <td>
+                            <div class="d-flex justify-content-between align-items-center mb-1 fs-xs">
+                                <span>${r.quantidade_total_conferida || 0} / ${r.quantidade_total_esperada || 0} un</span>
+                                <span class="fw-bold">${r.porcentagem || 0}%</span>
+                            </div>
+                            <div class="progress" style="height: 6px;">
+                                <div class="progress-bar bg-success" style="width: ${r.porcentagem || 0}%;"></div>
+                            </div>
+                        </td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            <span class="fs-xs text-muted"><i class="fa-solid fa-user me-1"></i> ${r.operador || 'Pendente'}</span>
+                        </td>
+                        <td class="text-end">
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-primary" onclick="App.iniciarConferenciaRecebimento(${r.id})" title="Conferir Entrada / Bipar">
+                                    <i class="fa-solid fa-barcode me-1"></i> Conferir
+                                </button>
+                                ${r.status === 'conferido' || r.status === 'armazenado' ? `
+                                    <button class="btn btn-alt-info" onclick="App.abrirPutawayRecebimento(${r.id})" title="Guia de Guarda / Putaway">
+                                        <i class="fa-solid fa-boxes-packing"></i>
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            if (tbody) tbody.innerHTML = html;
+        } catch (e) {
+            console.error('Erro ao carregar recebimentos:', e);
+            if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">Erro ao carregar recebimentos.</td></tr>`;
+        }
+    },
+
+    limparFiltrosRecebimento() {
+        const b = document.getElementById('filtroRecBusca'); if (b) b.value = '';
+        const s = document.getElementById('filtroRecStatus'); if (s) s.value = '';
+        this.carregarRecebimentos();
+    },
+
+    modalUploadXmlNfe() {
+        document.getElementById('formUploadXmlNfe')?.reset();
+        document.getElementById('lblXmlNomeArquivo').textContent = 'Nenhum arquivo selecionado';
+        document.getElementById('modalUploadXmlNfe').classList.add('active');
+    },
+
+    onArquivoXmlSelecionado(input) {
+        if (input.files && input.files[0]) {
+            document.getElementById('lblXmlNomeArquivo').textContent = input.files[0].name;
+        }
+    },
+
+    async executarUploadXmlNfe(e) {
+        if (e) e.preventDefault();
+
+        const fileInput = document.getElementById('fileXmlNfe');
+        const txtXml = document.getElementById('txtXmlNfe')?.value.trim();
+
+        const formData = new FormData();
+        if (fileInput && fileInput.files && fileInput.files[0]) {
+            formData.append('xml_file', fileInput.files[0]);
+        } else if (txtXml) {
+            formData.append('xml_string', txtXml);
+        } else {
+            this.toast('Selecione um arquivo XML ou cole o código XML da NF-e.', 'warning');
+            return;
+        }
+
+        const btn = document.getElementById('btnProcessarXmlNfe');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> Processando XML...';
+        }
+
+        try {
+            const res = await fetch('api/recebimento.php?action=upload_xml', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                this.toast(data.message || 'NF-e importada com sucesso!', 'success');
+                this.fecharModais();
+                this.carregarRecebimentos();
+                if (data.recebimento_id) {
+                    this.iniciarConferenciaRecebimento(data.recebimento_id);
+                }
+            } else {
+                this.toast(data.error || 'Erro ao importar XML.', 'error');
+            }
+        } catch (err) {
+            console.error('Erro no upload do XML:', err);
+            this.toast('Erro de conexão ao processar XML da NF-e.', 'error');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-bolt me-1"></i> Processar & Importar Itens';
+            }
+        }
+    },
+
+    modalNovoRecebimentoManual() {
+        document.getElementById('formRecebimentoManual')?.reset();
+        const tbody = document.getElementById('tabelaItensManualBody');
+        if (tbody) {
+            tbody.innerHTML = '';
+            this.adicionarLinhaItemManual();
+        }
+        document.getElementById('modalRecebimentoManual').classList.add('active');
+        document.getElementById('manNumDoc')?.focus();
+    },
+
+    adicionarLinhaItemManual() {
+        const tbody = document.getElementById('tabelaItensManualBody');
+        if (!tbody) return;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><input type="text" class="form-control form-control-sm font-mono item-cod" placeholder="SKU (ex: RP001)" required></td>
+            <td><input type="text" class="form-control form-control-sm font-mono item-ean" placeholder="EAN-13"></td>
+            <td><input type="text" class="form-control form-control-sm item-desc" placeholder="Nome do produto"></td>
+            <td><input type="number" class="form-control form-control-sm item-qtd" value="1" min="1" step="1" required></td>
+            <td class="text-center">
+                <button type="button" class="btn btn-xs btn-alt-danger" onclick="this.closest('tr').remove()" title="Remover"><i class="fa-solid fa-trash"></i></button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    },
+
+    async salvarRecebimentoManual(e) {
+        if (e) e.preventDefault();
+
+        const numDoc = document.getElementById('manNumDoc').value.trim();
+        const fornNome = document.getElementById('manFornNome').value.trim();
+
+        const rows = document.querySelectorAll('#tabelaItensManualBody tr');
+        const itens = [];
+
+        rows.forEach(r => {
+            const cod = r.querySelector('.item-cod')?.value.trim();
+            const ean = r.querySelector('.item-ean')?.value.trim();
+            const desc = r.querySelector('.item-desc')?.value.trim();
+            const qtd = parseFloat(r.querySelector('.item-qtd')?.value || 0);
+
+            if (cod && qtd > 0) {
+                itens.push({ codigo_produto: cod, ean, descricao: desc || cod, quantidade: qtd });
+            }
+        });
+
+        if (itens.length === 0) {
+            this.toast('Adicione pelo menos um item válido na ordem.', 'warning');
+            return;
+        }
+
+        try {
+            const res = await fetch('api/recebimento.php?action=criar_manual', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ numero_documento: numDoc, fornecedor_nome: fornNome, itens })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                this.toast(data.message || 'Recebimento criado com sucesso!', 'success');
+                this.fecharModais();
+                this.carregarRecebimentos();
+                if (data.recebimento_id) {
+                    this.iniciarConferenciaRecebimento(data.recebimento_id);
+                }
+            } else {
+                this.toast(data.error || 'Erro ao criar recebimento.', 'error');
+            }
+        } catch (err) {
+            console.error('Erro ao salvar recebimento manual:', err);
+            this.toast('Erro ao criar recebimento.', 'error');
+        }
+    },
+
+    async iniciarConferenciaRecebimento(recId) {
+        try {
+            const res = await fetch('api/recebimento.php?action=iniciar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: recId, operador: this.operador })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                this.recebimentoAtivo = data;
+                this.renderizarConferenciaRecebimento(data);
+                document.getElementById('recebimentoListaContainer').style.display = 'none';
+                document.getElementById('recebimentoAtivoContainer').style.display = 'block';
+                document.getElementById('inputManualBarcodeRec')?.focus();
+            } else {
+                this.toast(data.error || 'Erro ao abrir recebimento.', 'error');
+            }
+        } catch (err) {
+            console.error('Erro ao iniciar recebimento:', err);
+            this.toast('Erro ao iniciar conferência de entrada.', 'error');
+        }
+    },
+
+    fecharConferenciaRecebimento() {
+        this.recebimentoAtivo = null;
+        this.stopCamera();
+        document.getElementById('recebimentoAtivoContainer').style.display = 'none';
+        document.getElementById('recebimentoListaContainer').style.display = 'block';
+        this.carregarRecebimentos();
+    },
+
+    renderizarConferenciaRecebimento(data) {
+        const rec = data.recebimento;
+        const itens = data.itens || [];
+        const logs = data.logs || [];
+
+        document.getElementById('lblRecNumDoc').textContent = rec.numero_documento || '---';
+        document.getElementById('lblRecFornecedor').textContent = `${rec.fornecedor_nome || 'Fornecedor'} (${rec.fornecedor_cnpj || ''})`;
+        document.getElementById('lblRecQtdConferida').textContent = rec.quantidade_total_conferida || 0;
+        document.getElementById('lblRecQtdEsperada').textContent = rec.quantidade_total_esperada || 0;
+        document.getElementById('lblRecPorcentagem').textContent = `${rec.porcentagem || 0}%`;
+
+        const fill = document.getElementById('recProgressBarFill');
+        if (fill) fill.style.width = `${rec.porcentagem || 0}%`;
+
+        const badge = document.getElementById('lblRecStatusBadge');
+        if (badge) {
+            badge.textContent = (rec.status === 'armazenado') ? 'Guardado (Putaway)' : ((rec.status === 'conferido') ? 'Conferido' : 'Em Conferência');
+            badge.className = `badge ${rec.status === 'conferido' || rec.status === 'armazenado' ? 'badge-success' : 'badge-progress'} fs-xs`;
+        }
+
+        // Renderizar Itens da Entrada
+        const container = document.getElementById('itensRecebimentoList');
+        if (container) {
+            let html = '';
+            itens.forEach(it => {
+                const qtdEsp = parseFloat(it.quantidade_esperada);
+                const qtdConf = parseFloat(it.quantidade_conferida);
+                const isDone = qtdConf >= qtdEsp;
+
+                let cardClass = 'status-pendente';
+                let statusBadge = '<span class="badge badge-pending"><i class="fa-regular fa-clock"></i> Pendente</span>';
+
+                if (isDone) {
+                    cardClass = (qtdConf > qtdEsp) ? 'status-divergencia' : 'status-conferido';
+                    statusBadge = (qtdConf > qtdEsp)
+                        ? '<span class="badge bg-warning-light text-warning"><i class="fa-solid fa-triangle-exclamation"></i> Excedido</span>'
+                        : '<span class="badge badge-success"><i class="fa-solid fa-check"></i> Conferido</span>';
+                } else if (qtdConf > 0) {
+                    cardClass = 'status-parcial';
+                    statusBadge = `<span class="badge badge-progress">${qtdConf}/${qtdEsp}</span>`;
+                }
+
+                html += `
+                    <div class="item-picking-card ${cardClass}" id="rec-item-${it.codigo_produto}">
+                        <div class="item-details">
+                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.35rem;">
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <h4 class="mb-0">${it.descricao}</h4>
+                                    ${it.local_sugerido_codigo ? `<span class="loc-badge loc-badge-pulmao" title="Guarda Sugerida"><i class="fa-solid fa-location-dot"></i> Guarda: ${it.local_sugerido_codigo}</span>` : '<span class="badge bg-body-secondary text-muted border fs-xs">Sem Local Sugerido</span>'}
+                                </div>
+                                ${statusBadge}
+                            </div>
+                            <div class="item-meta">
+                                <span>SKU: <strong class="font-mono text-primary">${it.codigo_produto}</strong></span>
+                                <span>EAN: <strong class="font-mono text-success">${it.ean || '---'}</strong></span>
+                                <span>Un: <strong>${it.unidade || 'UN'}</strong></span>
+                                ${it.lote ? `<span>Lote: <strong>${it.lote}</strong></span>` : ''}
+                                ${it.data_validade ? `<span>Val: <strong>${it.data_validade}</strong></span>` : ''}
+                            </div>
+                        </div>
+                        <div class="item-count-box">
+                            <span class="conferido-num" style="${isDone ? 'color: var(--color-success);' : ''}">${qtdConf}</span>
+                            <span class="separator">/</span>
+                            <span class="total-num">${qtdEsp}</span>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        // Renderizar Logs
+        const logContainer = document.getElementById('listaLogsRecebimentoContainer');
+        if (logContainer) {
+            if (logs.length === 0) {
+                logContainer.innerHTML = '<span class="text-muted fs-xs text-center d-block py-2">Nenhuma bipagem registrada ainda.</span>';
+            } else {
+                let logHtml = '<ul class="list-unstyled fs-xs mb-0">';
+                logs.forEach(l => {
+                    const icon = (l.resultado === 'sucesso') ? '<i class="fa-solid fa-check text-success me-1"></i>' : '<i class="fa-solid fa-xmark text-danger me-1"></i>';
+                    logHtml += `<li class="py-1 border-bottom d-flex justify-content-between"><span>${icon}<strong>${l.codigo_bipado}</strong></span><span class="text-muted">${l.timestamp?.substring(11, 19) || ''}</span></li>`;
+                });
+                logHtml += '</ul>';
+                logContainer.innerHTML = logHtml;
+            }
+        }
+    },
+
+    async biparRecebimento(codigoBipado, tipoLeitura = 'camera') {
+        if (!this.recebimentoAtivo || !this.recebimentoAtivo.recebimento) return;
+
+        const recId = this.recebimentoAtivo.recebimento.id;
+        const banner = document.getElementById('scanStatusBannerRec');
+
+        try {
+            const res = await fetch('api/recebimento.php?action=bipar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    recebimento_id: recId,
+                    codigo_bipado: codigoBipado,
+                    tipo_leitura: tipoLeitura,
+                    operador: this.operador
+                })
+            });
+            const data = await res.json();
+
+            if (!data.success) {
+                window.soundEngine.playError();
+                this.toast(data.error || 'Código incorreto ou produto não pertence à nota.', 'error');
+                if (banner) {
+                    banner.style.display = 'block';
+                    banner.className = 'alert alert-danger fs-xs py-2 px-3 mb-2 text-center';
+                    banner.innerHTML = `<i class="fa-solid fa-xmark"></i> ${data.error || 'Código não pertence à nota!'}`;
+                }
+                return;
+            }
+
+            window.soundEngine.playSuccess();
+            this.recebimentoAtivo = data;
+            this.renderizarConferenciaRecebimento(data);
+
+            if (banner) {
+                banner.style.display = 'block';
+                banner.className = 'alert alert-success fs-xs py-2 px-3 mb-2 text-center';
+                banner.innerHTML = `<i class="fa-solid fa-check"></i> ${data.message || 'Item conferido!'}`;
+            }
+
+            // Animar o card do produto
+            const card = document.getElementById(`rec-item-${codigoBipado}`);
+            if (card) {
+                card.classList.add('just-scanned');
+                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => card.classList.remove('just-scanned'), 700);
+            }
+        } catch (err) {
+            console.error('Erro na bipagem de recebimento:', err);
+            this.toast('Erro ao registrar bipagem de entrada.', 'error');
+        }
+    },
+
+    biparRecebimentoManual() {
+        const inp = document.getElementById('inputManualBarcodeRec');
+        const code = inp?.value.trim();
+        if (code) {
+            this.biparRecebimento(code, 'manual');
+            inp.value = '';
+        }
+    },
+
+    async finalizarConferenciaRecebimento() {
+        if (!this.recebimentoAtivo || !this.recebimentoAtivo.recebimento) return;
+        const recId = this.recebimentoAtivo.recebimento.id;
+
+        try {
+            const res = await fetch('api/recebimento.php?action=finalizar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: recId })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                window.soundEngine.playOrderComplete();
+                this.toast(data.message || 'Conferência finalizada com sucesso! Abra o Putaway.', 'success');
+                this.recebimentoAtivo = data;
+                this.renderizarConferenciaRecebimento(data);
+                this.modalPutawayGuarda();
+            } else {
+                this.toast(data.error || 'Erro ao finalizar recebimento.', 'error');
+            }
+        } catch (err) {
+            console.error('Erro ao finalizar recebimento:', err);
+            this.toast('Erro ao finalizar conferência de entrada.', 'error');
+        }
+    },
+
+    abrirPutawayRecebimento(recId) {
+        this.iniciarConferenciaRecebimento(recId).then(() => {
+            this.modalPutawayGuarda();
+        });
+    },
+
+    async modalPutawayGuarda() {
+        if (!this.recebimentoAtivo || !this.recebimentoAtivo.itens) {
+            this.toast('Nenhum recebimento ativo.', 'warning');
+            return;
+        }
+
+        const tbody = document.getElementById('tabelaPutawayBody');
+        if (!tbody) return;
+
+        // Buscar opções de locais para o select
+        let locaisOpts = '<option value="">-- Selecionar Posição --</option>';
+        if (this.locaisCache.length === 0) {
+            await this.carregarLocais();
+        }
+        this.locaisCache.forEach(l => {
+            locaisOpts += `<option value="${l.id}">[${l.tipo.toUpperCase()}] ${l.codigo} (Rua ${l.rua})</option>`;
+        });
+
+        let html = '';
+        this.recebimentoAtivo.itens.forEach(it => {
+            const sugeridoId = it.local_sugerido_id || '';
+            html += `
+                <tr data-item-id="${it.id}">
+                    <td>
+                        <strong>${it.descricao}</strong><br>
+                        <span class="text-muted fs-xs">SKU: <code class="font-mono">${it.codigo_produto}</code> • EAN: ${it.ean || '---'}</span>
+                    </td>
+                    <td>
+                        <span class="fw-bold text-success fs-sm">${it.quantidade_conferida || it.quantidade_esperada}</span> ${it.unidade || 'UN'}
+                    </td>
+                    <td>
+                        ${it.local_sugerido_codigo ? `<span class="loc-badge loc-badge-picking"><i class="fa-solid fa-location-dot"></i> ${it.local_sugerido_codigo}</span>` : '<span class="text-muted fs-xs">Nenhum</span>'}
+                    </td>
+                    <td>
+                        <select class="form-select form-select-sm putaway-local-select">
+                            ${locaisOpts}
+                        </select>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+
+        // Pré-selecionar o local sugerido
+        const rows = tbody.querySelectorAll('tr');
+        rows.forEach((r, idx) => {
+            const it = this.recebimentoAtivo.itens[idx];
+            if (it && it.local_sugerido_id) {
+                const sel = r.querySelector('.putaway-local-select');
+                if (sel) sel.value = it.local_sugerido_id;
+            }
+        });
+
+        document.getElementById('modalPutaway').classList.add('active');
+    },
+
+    async confirmarPutaway() {
+        if (!this.recebimentoAtivo || !this.recebimentoAtivo.recebimento) return;
+        const recId = this.recebimentoAtivo.recebimento.id;
+
+        const rows = document.querySelectorAll('#tabelaPutawayBody tr');
+        const alocacoes = [];
+
+        rows.forEach(r => {
+            const itemId = r.getAttribute('data-item-id');
+            const localId = r.querySelector('.putaway-local-select')?.value;
+            if (itemId && localId) {
+                alocacoes.push({ item_id: itemId, local_id: localId });
+            }
+        });
+
+        if (alocacoes.length === 0) {
+            this.toast('Selecione as posições de prateleira para guardar os itens.', 'warning');
+            return;
+        }
+
+        try {
+            const res = await fetch('api/recebimento.php?action=armazenar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ recebimento_id: recId, itens: alocacoes })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                this.toast(data.message || 'Itens guardados e saldos de estoque atualizados nas prateleiras!', 'success');
+                this.fecharModais();
+                this.recebimentoAtivo = data;
+                this.renderizarConferenciaRecebimento(data);
+                this.carregarLocais();
+            } else {
+                this.toast(data.error || 'Erro ao confirmar armazenagem.', 'error');
+            }
+        } catch (err) {
+            console.error('Erro no putaway:', err);
+            this.toast('Erro ao processar armazenagem.', 'error');
+        }
+    },
+
+    async startCameraRecebimento() {
+        const btnStart = document.getElementById('btnStartCamRec');
+        const btnStop = document.getElementById('btnStopCamRec');
+        const laser = document.getElementById('scanLaserRec');
+
+        const started = await this.scanner.startCamera('readerRec');
+        if (started) {
+            if (btnStart) btnStart.style.display = 'none';
+            if (btnStop) btnStop.style.display = 'block';
+            if (laser) laser.style.display = 'block';
+        } else {
+            this.toast('Não foi possível iniciar a câmera para conferência de entrada.', 'error');
+        }
+    },
+
     toast(mensagem, tipo = 'info') {
         const container = document.getElementById('toastContainer');
         if (!container) return;

@@ -129,6 +129,92 @@ function initSchema(PDO $pdo) {
             atualizado_em DATETIME DEFAULT CURRENT_TIMESTAMP
         );
 
+        CREATE TABLE IF NOT EXISTS locais_armazenagem (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            codigo TEXT UNIQUE NOT NULL, -- Ex: A-01-02-01
+            armazem TEXT DEFAULT 'Principal',
+            rua TEXT NOT NULL, -- Ex: A
+            estante TEXT NOT NULL, -- Ex: 01
+            nivel TEXT NOT NULL, -- Ex: 02
+            posicao TEXT NOT NULL, -- Ex: 01
+            tipo TEXT DEFAULT 'picking', -- picking, pulmao, quarentena, avarias
+            capacidade_maxima REAL DEFAULT 0,
+            peso_max_kg REAL DEFAULT 0,
+            status TEXT DEFAULT 'ativo', -- ativo, inativo, manutencao
+            observacoes TEXT,
+            criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+            atualizado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS produtos_enderecos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            codigo_produto TEXT NOT NULL,
+            local_id INTEGER NOT NULL,
+            tipo TEXT DEFAULT 'principal', -- principal, reserva, temporario
+            quantidade_atual REAL DEFAULT 0,
+            capacidade_maxima REAL DEFAULT 0,
+            criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+            atualizado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (local_id) REFERENCES locais_armazenagem(id) ON DELETE CASCADE,
+            UNIQUE(codigo_produto, local_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS recebimentos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            numero_documento TEXT, -- Número NF-e ou Pedido de Compra
+            serie_documento TEXT DEFAULT '1',
+            chave_nfe TEXT, -- Chave de 44 dígitos
+            fornecedor_nome TEXT,
+            fornecedor_cnpj TEXT,
+            fornecedor_uf TEXT,
+            valor_total REAL DEFAULT 0,
+            status TEXT DEFAULT 'pendente', -- pendente, em_conferencia, divergencia, conferido, armazenado, cancelado
+            total_itens INTEGER DEFAULT 0,
+            itens_conferidos INTEGER DEFAULT 0,
+            quantidade_total_esperada REAL DEFAULT 0,
+            quantidade_total_conferida REAL DEFAULT 0,
+            data_emissao DATETIME,
+            data_recebimento DATETIME,
+            data_armazenamento DATETIME,
+            operador TEXT,
+            observacoes TEXT,
+            xml_raw TEXT,
+            criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+            atualizado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS recebimento_itens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            recebimento_id INTEGER NOT NULL,
+            codigo_produto TEXT,
+            ean TEXT,
+            descricao TEXT,
+            unidade TEXT DEFAULT 'UN',
+            quantidade_esperada REAL DEFAULT 0,
+            quantidade_conferida REAL DEFAULT 0,
+            valor_unitario REAL DEFAULT 0,
+            lote TEXT,
+            data_validade DATE,
+            local_sugerido_id INTEGER,
+            local_armazenado_id INTEGER,
+            status TEXT DEFAULT 'pendente', -- pendente, parcial, conferido, divergente
+            FOREIGN KEY (recebimento_id) REFERENCES recebimentos(id) ON DELETE CASCADE,
+            FOREIGN KEY (local_sugerido_id) REFERENCES locais_armazenagem(id) ON DELETE SET NULL,
+            FOREIGN KEY (local_armazenado_id) REFERENCES locais_armazenagem(id) ON DELETE SET NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS logs_bipagem_recebimento (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            recebimento_id INTEGER NOT NULL,
+            codigo_bipado TEXT,
+            codigo_produto_identificado TEXT,
+            tipo_leitura TEXT, -- camera, pistola, manual
+            resultado TEXT, -- sucesso, produto_nao_pertence, quantidade_excedida, erro
+            operador TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (recebimento_id) REFERENCES recebimentos(id) ON DELETE CASCADE
+        );
+
         CREATE INDEX IF NOT EXISTS idx_conferencias_num ON conferencias(numero_pedido);
         CREATE INDEX IF NOT EXISTS idx_conferencias_status ON conferencias(status);
         CREATE INDEX IF NOT EXISTS idx_itens_conferencia ON conferencia_itens(conferencia_id);
@@ -139,6 +225,16 @@ function initSchema(PDO $pdo) {
         CREATE INDEX IF NOT EXISTS idx_usuarios_email ON usuarios(email);
         CREATE INDEX IF NOT EXISTS idx_usuarios_status ON usuarios(status);
         CREATE INDEX IF NOT EXISTS idx_usuarios_funcao ON usuarios(funcao);
+        CREATE INDEX IF NOT EXISTS idx_locais_codigo ON locais_armazenagem(codigo);
+        CREATE INDEX IF NOT EXISTS idx_locais_armazem_rua ON locais_armazenagem(armazem, rua, estante, nivel, posicao);
+        CREATE INDEX IF NOT EXISTS idx_prod_end_prod ON produtos_enderecos(codigo_produto);
+        CREATE INDEX IF NOT EXISTS idx_prod_end_local ON produtos_enderecos(local_id);
+        CREATE INDEX IF NOT EXISTS idx_receb_status ON recebimentos(status);
+        CREATE INDEX IF NOT EXISTS idx_receb_doc ON recebimentos(numero_documento);
+        CREATE INDEX IF NOT EXISTS idx_receb_chave ON recebimentos(chave_nfe);
+        CREATE INDEX IF NOT EXISTS idx_receb_itens_rec ON recebimento_itens(recebimento_id);
+        CREATE INDEX IF NOT EXISTS idx_receb_itens_cod ON recebimento_itens(codigo_produto);
+        CREATE INDEX IF NOT EXISTS idx_receb_itens_ean ON recebimento_itens(ean);
     ");
 
     // Garantir migração da coluna permissoes se a tabela já existia antes
@@ -227,6 +323,48 @@ function getCatalogoPermissoes(): array {
             'categoria' => 'Histórico',
             'icone' => 'fa-solid fa-print'
         ],
+        'locais_visualizar' => [
+            'id' => 'locais_visualizar',
+            'nome' => 'Visualizar Endereçamento',
+            'descricao' => 'Consultar estrutura física do armazém, ruas, prateleiras e posições.',
+            'categoria' => 'Endereçamento',
+            'icone' => 'fa-solid fa-location-dot'
+        ],
+        'locais_gerenciar' => [
+            'id' => 'locais_gerenciar',
+            'nome' => 'Gerenciar Endereços & Saldo',
+            'descricao' => 'Cadastrar, editar, gerar posições em lote e vincular produtos a locais.',
+            'categoria' => 'Endereçamento',
+            'icone' => 'fa-solid fa-warehouse'
+        ],
+        'recebimento_visualizar' => [
+            'id' => 'recebimento_visualizar',
+            'nome' => 'Visualizar Recebimentos',
+            'descricao' => 'Consultar notas fiscais e ordens de recebimento de fornecedores.',
+            'categoria' => 'Recebimento',
+            'icone' => 'fa-solid fa-truck-ramp-box'
+        ],
+        'recebimento_criar' => [
+            'id' => 'recebimento_criar',
+            'nome' => 'Importar XML / Criar Entrada',
+            'descricao' => 'Fazer upload de XML de NF-e e cadastrar novas ordens de recebimento.',
+            'categoria' => 'Recebimento',
+            'icone' => 'fa-solid fa-file-arrow-up'
+        ],
+        'recebimento_conferir' => [
+            'id' => 'recebimento_conferir',
+            'nome' => 'Conferir Entrada / Bipagem',
+            'descricao' => 'Realizar a conferência cega ou guiada de produtos recebidos do fornecedor.',
+            'categoria' => 'Recebimento',
+            'icone' => 'fa-solid fa-barcode'
+        ],
+        'recebimento_armazenar' => [
+            'id' => 'recebimento_armazenar',
+            'nome' => 'Guarda & Putaway',
+            'descricao' => 'Confirmar o armazenamento dos produtos nas prateleiras de destino.',
+            'categoria' => 'Recebimento',
+            'icone' => 'fa-solid fa-boxes-packing'
+        ],
         'eans_visualizar' => [
             'id' => 'eans_visualizar',
             'nome' => 'Visualizar De-Para EAN',
@@ -299,6 +437,12 @@ function getRoleDefaultPermissions(string $funcao): array {
                 'conferencia_finalizar',
                 'historico_visualizar',
                 'historico_imprimir_romaneio',
+                'locais_visualizar',
+                'locais_gerenciar',
+                'recebimento_visualizar',
+                'recebimento_criar',
+                'recebimento_conferir',
+                'recebimento_armazenar',
                 'eans_visualizar',
                 'eans_gerenciar',
                 'usuarios_visualizar',
@@ -314,6 +458,10 @@ function getRoleDefaultPermissions(string $funcao): array {
                 'conferencia_finalizar',
                 'historico_visualizar',
                 'historico_imprimir_romaneio',
+                'locais_visualizar',
+                'recebimento_visualizar',
+                'recebimento_conferir',
+                'recebimento_armazenar',
                 'eans_visualizar'
             ];
 
@@ -325,7 +473,10 @@ function getRoleDefaultPermissions(string $funcao): array {
                 'conferencia_bipar',
                 'conferencia_adicionar_volume',
                 'conferencia_finalizar',
-                'historico_visualizar'
+                'historico_visualizar',
+                'locais_visualizar',
+                'recebimento_visualizar',
+                'recebimento_conferir'
             ];
     }
 }
@@ -491,3 +642,63 @@ function obterProdutoPorEan(string $ean, ?SigeClient $sige = null, ?PDO $db = nu
 
     return null;
 }
+
+/**
+ * Obtém o endereço principal de armazenagem de um SKU
+ */
+function obterEnderecoPrincipalProduto(string $codigoProduto, ?PDO $db = null): ?array {
+    $cleanCod = trim($codigoProduto);
+    if (empty($cleanCod)) return null;
+
+    $db = $db ?? getDB();
+    $stmt = $db->prepare("
+        SELECT pe.*, l.codigo AS local_codigo, l.armazem, l.rua, l.estante, l.nivel, l.posicao, l.tipo AS local_tipo
+        FROM produtos_enderecos pe
+        INNER JOIN locais_armazenagem l ON l.id = pe.local_id
+        WHERE pe.codigo_produto = ?
+        ORDER BY CASE WHEN pe.tipo = 'principal' THEN 0 ELSE 1 END, pe.id ASC
+        LIMIT 1
+    ");
+    $stmt->execute([$cleanCod]);
+    $res = $stmt->fetch();
+    return $res ?: null;
+}
+
+/**
+ * Obtém todos os endereços vinculados a um SKU
+ */
+function obterEnderecosProduto(string $codigoProduto, ?PDO $db = null): array {
+    $cleanCod = trim($codigoProduto);
+    if (empty($cleanCod)) return [];
+
+    $db = $db ?? getDB();
+    $stmt = $db->prepare("
+        SELECT pe.*, l.codigo AS local_codigo, l.armazem, l.rua, l.estante, l.nivel, l.posicao, l.tipo AS local_tipo
+        FROM produtos_enderecos pe
+        INNER JOIN locais_armazenagem l ON l.id = pe.local_id
+        WHERE pe.codigo_produto = ?
+        ORDER BY CASE WHEN pe.tipo = 'principal' THEN 0 ELSE 1 END, pe.id ASC
+    ");
+    $stmt->execute([$cleanCod]);
+    return $stmt->fetchAll() ?: [];
+}
+
+/**
+ * Atribui ou atualiza endereço de armazenagem para um SKU
+ */
+function atribuirEnderecoProduto(string $codigoProduto, int $localId, float $quantidade = 0, string $tipo = 'principal', ?PDO $db = null): bool {
+    $cleanCod = trim($codigoProduto);
+    if (empty($cleanCod) || $localId <= 0) return false;
+
+    $db = $db ?? getDB();
+    $stmt = $db->prepare("
+        INSERT INTO produtos_enderecos (codigo_produto, local_id, tipo, quantidade_atual, atualizado_em)
+        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(codigo_produto, local_id) DO UPDATE SET
+            tipo = excluded.tipo,
+            quantidade_atual = CASE WHEN excluded.quantidade_atual > 0 THEN excluded.quantidade_atual ELSE produtos_enderecos.quantidade_atual END,
+            atualizado_em = CURRENT_TIMESTAMP
+    ");
+    return $stmt->execute([$cleanCod, $localId, $tipo, $quantidade]);
+}
+
