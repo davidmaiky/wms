@@ -1,0 +1,26 @@
+{
+  "name": "WMS Prime - Separação & Conferência Logística",
+  "short_name": "WMS Prime",
+  "description": "Sistema WMS de separação, conferência de pedidos e bipagem de produtos integrado ao ERP SIGE Cloud.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#090d16",
+  "theme_color": "#090d16",
+  "icons": [
+    {
+      "src": "css/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "css/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity", "utilities"],
+  "lang": "pt-BR"
+}

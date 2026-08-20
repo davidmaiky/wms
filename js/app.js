@@ -19,6 +19,15 @@ const App = {
         // Configurar interceptador fetch global para lidar com 401
         this.setupFetchInterceptor();
 
+        // Registrar Service Worker PWA
+        this.registerServiceWorker();
+
+        // Monitorar conectividade de rede (Online / Offline)
+        this.setupNetworkStatusListeners();
+
+        // Configurar atalhos operacionais de teclado para coletores de dados
+        this.setupKeyboardShortcuts();
+
         // Inicializar áudio e leitor
         this.soundEnabled = localStorage.getItem('wms_sound') !== '0';
         window.soundEngine.setEnabled(this.soundEnabled);
@@ -47,6 +56,96 @@ const App = {
                 this.exibirLoginScreen();
             }
         });
+    },
+
+    registerServiceWorker() {
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => {
+                        console.log('[PWA] Service Worker registrado com sucesso no escopo:', reg.scope);
+                    })
+                    .catch(err => {
+                        console.warn('[PWA] Falha ao registrar Service Worker:', err);
+                    });
+            });
+        }
+    },
+
+    setupNetworkStatusListeners() {
+        const updateStatus = () => {
+            const chip = document.getElementById('networkStatusChip');
+            if (!chip) return;
+            if (navigator.onLine) {
+                chip.innerHTML = '<span class="status-dot"></span> Online';
+                chip.classList.remove('offline');
+                chip.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+                chip.style.color = '#34d399';
+            } else {
+                chip.innerHTML = '<span class="status-dot" style="background:#ef4444;box-shadow:0 0 8px #ef4444;"></span> Offline';
+                chip.classList.add('offline');
+                chip.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+                chip.style.color = '#f87171';
+                this.toast('Conexão de rede perdida! O app funcionará com cache local.', 'warning');
+            }
+        };
+
+        window.addEventListener('online', updateStatus);
+        window.addEventListener('offline', updateStatus);
+        updateStatus();
+    },
+
+    setupKeyboardShortcuts() {
+        window.addEventListener('keydown', (e) => {
+            // Ignora se estiver digitando em um input/textarea e não for tecla de função F
+            const target = e.target;
+            const isTyping = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+
+            // F2 ou Ctrl + B -> Focar campo de bipagem manual
+            if (e.key === 'F2' || (e.ctrlKey && (e.key === 'b' || e.key === 'B'))) {
+                e.preventDefault();
+                const input = document.getElementById('inputManualBarcode');
+                if (input) {
+                    if (this.currentView !== 'conferencia') {
+                        this.navigate('conferencia');
+                    }
+                    input.focus();
+                    input.select();
+                }
+                return;
+            }
+
+            // F4 -> Finalizar conferência
+            if (e.key === 'F4') {
+                e.preventDefault();
+                const btn = document.getElementById('btnFinalizarConf');
+                if (btn && !btn.disabled && this.currentView === 'conferencia') {
+                    btn.click();
+                }
+                return;
+            }
+
+            // F7 -> Adicionar Volume
+            if (e.key === 'F7') {
+                e.preventDefault();
+                const btnVol = document.getElementById('btnAbrirModalVolume');
+                if (btnVol && this.currentView === 'conferencia') {
+                    btnVol.click();
+                }
+                return;
+            }
+
+            // Escape -> Fechar modais
+            if (e.key === 'Escape') {
+                this.fecharTodosModais();
+                return;
+            }
+        });
+    },
+
+    fecharTodosModais() {
+        const modais = document.querySelectorAll('.modal-overlay.active, .modal.active');
+        modais.forEach(m => m.classList.remove('active'));
     },
 
     setupFetchInterceptor() {
