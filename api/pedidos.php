@@ -10,6 +10,8 @@ $sige = new SigeClient();
 try {
     switch ($action) {
         case 'list':
+            requirePermission('pedidos_visualizar');
+
             $codigo = $_GET['codigo'] ?? '';
             $cliente = $_GET['cliente'] ?? '';
             $status = $_GET['status'] ?? '';
@@ -79,6 +81,8 @@ try {
             break;
 
         case 'get':
+            requirePermission('pedidos_visualizar');
+
             $codigo = (int)($_GET['codigo'] ?? 0);
             if (!$codigo) {
                 jsonError("Código do pedido não informado.");
@@ -153,6 +157,8 @@ try {
             break;
 
         case 'stats':
+            requirePermission('pedidos_visualizar');
+
             // Estatísticas gerais para o Dashboard
             $stats = [
                 'total_conferencias' => 0,

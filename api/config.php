@@ -40,6 +40,40 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 /**
+ * Verifica se o operador autenticado possui determinada permissão
+ */
+function hasPermission(string $permissionKey): bool {
+    if (PHP_SAPI === 'cli') {
+        return true;
+    }
+
+    if (empty($_SESSION['wms_user'])) {
+        return false;
+    }
+
+    $funcao = $_SESSION['wms_user']['funcao'] ?? 'operador';
+    if ($funcao === 'admin') {
+        return true;
+    }
+
+    $perms = $_SESSION['wms_user']['permissoes'] ?? [];
+    if (!is_array($perms)) {
+        $perms = [];
+    }
+
+    return in_array($permissionKey, $perms);
+}
+
+/**
+ * Exige uma permissão específica, abortando com erro 403 se o usuário não possuir
+ */
+function requirePermission(string $permissionKey): void {
+    if (!hasPermission($permissionKey)) {
+        jsonError("Acesso negado: você não possui a permissão '$permissionKey' para executar esta ação.", 403);
+    }
+}
+
+/**
  * Verifica se o operador está autenticado.
  * Bloqueia requisições não autorizadas, exceto para a ação de login.
  */
@@ -73,4 +107,5 @@ function checkAuth() {
 
 // Executar verificação em todas as requisições web
 checkAuth();
+
 

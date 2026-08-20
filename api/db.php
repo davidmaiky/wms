@@ -109,6 +109,7 @@ function initSchema(PDO $pdo) {
             pin TEXT,
             status TEXT DEFAULT 'ativo', -- ativo, inativo
             avatar_cor TEXT DEFAULT '#3b82f6',
+            permissoes TEXT DEFAULT NULL, -- JSON com permissões customizadas ou NULL para usar padrão da função
             ultimo_acesso DATETIME,
             criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
             atualizado_em DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -134,6 +135,12 @@ function initSchema(PDO $pdo) {
         CREATE INDEX IF NOT EXISTS idx_usuarios_funcao ON usuarios(funcao);
     ");
 
+    // Garantir migração da coluna permissoes se a tabela já existia antes
+    $colunasUsuarios = $pdo->query("PRAGMA table_info(usuarios)")->fetchAll(PDO::FETCH_COLUMN, 1);
+    if (!in_array('permissoes', $colunasUsuarios)) {
+        $pdo->exec("ALTER TABLE usuarios ADD COLUMN permissoes TEXT DEFAULT NULL");
+    }
+
     // Inserir usuários padrão se tabela estiver vazia
     $countUsers = $pdo->query("SELECT COUNT(*) FROM usuarios")->fetchColumn();
     if ($countUsers == 0) {
@@ -151,6 +158,190 @@ function initSchema(PDO $pdo) {
     $stmt->execute(['som_habilitado', '1']);
     $stmt->execute(['modo_cego', '0']); // 0 = normal, 1 = conferência cega
     $stmt->execute(['operador_padrao', 'Operador']);
+}
+
+/**
+ * Catálogo completo de permissões disponíveis no sistema WMS
+ */
+function getCatalogoPermissoes(): array {
+    return [
+        'pedidos_visualizar' => [
+            'id' => 'pedidos_visualizar',
+            'nome' => 'Visualizar Pedidos & Dashboard',
+            'descricao' => 'Consultar listagem de pedidos do ERP e indicadores (KPIs).',
+            'categoria' => 'Pedidos',
+            'icone' => 'fa-solid fa-clipboard-list'
+        ],
+        'pedidos_iniciar_separacao' => [
+            'id' => 'pedidos_iniciar_separacao',
+            'nome' => 'Iniciar Separação',
+            'descricao' => 'Iniciar o processo de conferência e separação de pedidos.',
+            'categoria' => 'Pedidos',
+            'icone' => 'fa-solid fa-play'
+        ],
+        'pedidos_cancelar' => [
+            'id' => 'pedidos_cancelar',
+            'nome' => 'Cancelar Separação',
+            'descricao' => 'Cancelar pedidos e separações em andamento com justificativa.',
+            'categoria' => 'Pedidos',
+            'icone' => 'fa-solid fa-ban'
+        ],
+        'conferencia_bipar' => [
+            'id' => 'conferencia_bipar',
+            'nome' => 'Bipagem & Conferência de Itens',
+            'descricao' => 'Escanear códigos de barras (EAN/SKU) e conferir produtos.',
+            'categoria' => 'Separação',
+            'icone' => 'fa-solid fa-barcode'
+        ],
+        'conferencia_adicionar_volume' => [
+            'id' => 'conferencia_adicionar_volume',
+            'nome' => 'Gerenciar Volumes & Embalagens',
+            'descricao' => 'Pesar caixas, registrar volumes e imprimir etiquetas térmicas.',
+            'categoria' => 'Separação',
+            'icone' => 'fa-solid fa-box'
+        ],
+        'conferencia_finalizar' => [
+            'id' => 'conferencia_finalizar',
+            'nome' => 'Finalizar Separação',
+            'descricao' => 'Concluir a conferência do pedido e registrar término no WMS.',
+            'categoria' => 'Separação',
+            'icone' => 'fa-solid fa-circle-check'
+        ],
+        'historico_visualizar' => [
+            'id' => 'historico_visualizar',
+            'nome' => 'Visualizar Histórico',
+            'descricao' => 'Consultar histórico de conferências concluídas e logs de bipagem.',
+            'categoria' => 'Histórico',
+            'icone' => 'fa-solid fa-clock-rotate-left'
+        ],
+        'historico_imprimir_romaneio' => [
+            'id' => 'historico_imprimir_romaneio',
+            'nome' => 'Imprimir Romaneios',
+            'descricao' => 'Visualizar e imprimir romaneios detalhados de separação.',
+            'categoria' => 'Histórico',
+            'icone' => 'fa-solid fa-print'
+        ],
+        'eans_visualizar' => [
+            'id' => 'eans_visualizar',
+            'nome' => 'Visualizar De-Para EAN',
+            'descricao' => 'Consultar catálogo de vínculos de códigos de barras (EAN x SKU).',
+            'categoria' => 'De-Para EAN',
+            'icone' => 'fa-solid fa-tags'
+        ],
+        'eans_gerenciar' => [
+            'id' => 'eans_gerenciar',
+            'nome' => 'Gerenciar De-Para EAN',
+            'descricao' => 'Cadastrar novos códigos de barras e excluir vínculos existentes.',
+            'categoria' => 'De-Para EAN',
+            'icone' => 'fa-solid fa-tag'
+        ],
+        'usuarios_visualizar' => [
+            'id' => 'usuarios_visualizar',
+            'nome' => 'Visualizar Usuários',
+            'descricao' => 'Visualizar lista de operadores e usuários cadastrados no sistema.',
+            'categoria' => 'Usuários',
+            'icone' => 'fa-solid fa-users'
+        ],
+        'usuarios_gerenciar' => [
+            'id' => 'usuarios_gerenciar',
+            'nome' => 'Gerenciar Usuários',
+            'descricao' => 'Cadastrar novos usuários, editar cadastros, inativar e excluir.',
+            'categoria' => 'Usuários',
+            'icone' => 'fa-solid fa-user-gear'
+        ],
+        'permissoes_gerenciar' => [
+            'id' => 'permissoes_gerenciar',
+            'nome' => 'Gerenciar Permissões',
+            'descricao' => 'Personalizar e alterar permissões de acesso de qualquer usuário.',
+            'categoria' => 'Usuários',
+            'icone' => 'fa-solid fa-shield-halved'
+        ],
+        'config_visualizar' => [
+            'id' => 'config_visualizar',
+            'nome' => 'Visualizar Ajustes',
+            'descricao' => 'Acessar a tela de configurações do sistema e integração.',
+            'categoria' => 'Ajustes',
+            'icone' => 'fa-solid fa-gear'
+        ],
+        'config_alterar' => [
+            'id' => 'config_alterar',
+            'nome' => 'Alterar Configurações',
+            'descricao' => 'Modificar tokens SIGE Cloud, parâmetros operacionais e integrações.',
+            'categoria' => 'Ajustes',
+            'icone' => 'fa-solid fa-sliders'
+        ]
+    ];
+}
+
+/**
+ * Retorna a lista de permissões padrão para cada função/cargo
+ */
+function getRoleDefaultPermissions(string $funcao): array {
+    $catalogo = array_keys(getCatalogoPermissoes());
+
+    switch (strtolower(trim($funcao))) {
+        case 'admin':
+            return $catalogo; // Todas as permissões
+
+        case 'supervisor':
+            return [
+                'pedidos_visualizar',
+                'pedidos_iniciar_separacao',
+                'pedidos_cancelar',
+                'conferencia_bipar',
+                'conferencia_adicionar_volume',
+                'conferencia_finalizar',
+                'historico_visualizar',
+                'historico_imprimir_romaneio',
+                'eans_visualizar',
+                'eans_gerenciar',
+                'usuarios_visualizar',
+                'config_visualizar'
+            ];
+
+        case 'conferente':
+            return [
+                'pedidos_visualizar',
+                'pedidos_iniciar_separacao',
+                'conferencia_bipar',
+                'conferencia_adicionar_volume',
+                'conferencia_finalizar',
+                'historico_visualizar',
+                'historico_imprimir_romaneio',
+                'eans_visualizar'
+            ];
+
+        case 'operador':
+        default:
+            return [
+                'pedidos_visualizar',
+                'pedidos_iniciar_separacao',
+                'conferencia_bipar',
+                'conferencia_adicionar_volume',
+                'conferencia_finalizar',
+                'historico_visualizar'
+            ];
+    }
+}
+
+/**
+ * Obtém a lista de permissões efetivas de um usuário (customizadas se definidas, senão o padrão da função)
+ */
+function getUserEffectivePermissions(array $usuario): array {
+    // Se o usuário tiver campo 'permissoes' definido e não vazio em JSON
+    if (!empty($usuario['permissoes'])) {
+        $custom = is_array($usuario['permissoes']) ? $usuario['permissoes'] : json_decode($usuario['permissoes'], true);
+        if (is_array($custom)) {
+            // Se for admin, sempre tem tudo garantido
+            if (($usuario['funcao'] ?? '') === 'admin') {
+                return array_keys(getCatalogoPermissoes());
+            }
+            return array_values(array_unique($custom));
+        }
+    }
+
+    // Caso contrário, retorna o padrão da função
+    return getRoleDefaultPermissions($usuario['funcao'] ?? 'operador');
 }
 
 function getConfig($chave, $default = '') {

@@ -5,6 +5,8 @@
 const App = {
     currentView: 'pedidos',
     operador: localStorage.getItem('wms_operador') || 'David',
+    currentUser: null,
+    permData: null,
     conferenciaAtiva: null,
     scanner: null,
     soundEnabled: true,
@@ -73,9 +75,11 @@ const App = {
             const res = await fetch('api/usuarios.php?action=me');
             const data = await res.json();
             if (data.success && data.user) {
+                this.currentUser = data.user;
                 this.operador = data.user.nome;
                 localStorage.setItem('wms_operador', data.user.nome);
                 this.atualizarOperadorHeader();
+                this.aplicarPermissoesUI();
                 return true;
             }
         } catch (e) {
@@ -84,17 +88,60 @@ const App = {
         return false;
     },
 
+    hasPermission(perm) {
+        if (!this.currentUser) return false;
+        if (this.currentUser.funcao === 'admin') return true;
+        return Array.isArray(this.currentUser.permissoes) && this.currentUser.permissoes.includes(perm);
+    },
+
+    aplicarPermissoesUI() {
+        if (!this.currentUser) return;
+
+        const navMap = {
+            'pedidos': this.hasPermission('pedidos_visualizar'),
+            'conferencia': this.hasPermission('conferencia_bipar') || this.hasPermission('pedidos_iniciar_separacao'),
+            'historico': this.hasPermission('historico_visualizar'),
+            'eans': this.hasPermission('eans_visualizar'),
+            'usuarios': this.hasPermission('usuarios_visualizar'),
+            'config': this.hasPermission('config_visualizar')
+        };
+
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            const view = btn.getAttribute('data-view');
+            if (view && navMap[view] !== undefined) {
+                btn.style.display = navMap[view] ? '' : 'none';
+            }
+        });
+
+        // Se a tela atual não for permitida, navegar para a primeira tela permitida
+        if (this.currentView && navMap[this.currentView] === false) {
+            const primeiraPermitida = Object.keys(navMap).find(k => navMap[k] === true);
+            if (primeiraPermitida) {
+                this.navigate(primeiraPermitida);
+            }
+        }
+    },
+
     carregarDadosIniciais() {
-        this.carregarConfiguracoes();
-        this.carregarStats();
-        this.buscarPedidos();
+        if (this.hasPermission('config_visualizar')) {
+            this.carregarConfiguracoes();
+        }
+        if (this.hasPermission('pedidos_visualizar')) {
+            this.carregarStats();
+            this.buscarPedidos();
+        }
     },
 
     atualizarOperadorHeader() {
         const lbl = document.getElementById('lblOperadorHeader');
         if (lbl) lbl.textContent = this.operador || 'Operador';
         const mini = document.getElementById('avatarMiniHeader');
-        if (mini) mini.textContent = (this.operador || 'O').charAt(0).toUpperCase();
+        if (mini) {
+            mini.textContent = (this.operador || 'O').charAt(0).toUpperCase();
+            if (this.currentUser && this.currentUser.avatar_cor) {
+                mini.style.background = this.currentUser.avatar_cor;
+            }
+        }
     },
 
     toggleFullscreen() {
@@ -155,6 +202,22 @@ const App = {
 
     // --- NAVEGAÇÃO ENTRE TELAS ---
     navigate(viewName) {
+        // Checagem de permissão da tela de destino
+        if (this.currentUser) {
+            const permMap = {
+                'pedidos': 'pedidos_visualizar',
+                'historico': 'historico_visualizar',
+                'eans': 'eans_visualizar',
+                'usuarios': 'usuarios_visualizar',
+                'config': 'config_visualizar'
+            };
+            const reqPerm = permMap[viewName];
+            if (reqPerm && !this.hasPermission(reqPerm)) {
+                this.toast('Acesso restrito: você não tem permissão para acessar esta área.', 'warning');
+                return;
+            }
+        }
+
         this.currentView = viewName;
 
         // Atualizar botões do menu
@@ -1464,7 +1527,7 @@ const App = {
         if (!usuarios || usuarios.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="6" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+                    <td colspan="7" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
                         <i class="fa-solid fa-user-slash fa-2x" style="margin-bottom: 0.5rem;"></i><br>
                         Nenhum usuário encontrado com os filtros selecionados.
                     </td>
@@ -1500,6 +1563,16 @@ const App = {
                 roleBadge = '<span class="badge-role badge-role-operador"><i class="fa-solid fa-dolly"></i> Operador</span>';
             }
 
+            // Badge de Permissões
+            let permBadge = '';
+            if (u.is_admin || u.funcao === 'admin') {
+                permBadge = `<span class="perm-badge-pill full-admin" title="Acesso total a todas as permissões"><i class="fa-solid fa-shield-halved"></i> Acesso Total</span>`;
+            } else if (u.tem_customizacao) {
+                permBadge = `<span class="perm-badge-pill custom-badge" title="Permissões personalizadas"><i class="fa-solid fa-sliders"></i> ${u.total_permissoes} / ${u.total_catalogo}</span>`;
+            } else {
+                permBadge = `<span class="perm-badge-pill default-badge" title="Permissões padrão do cargo (${u.funcao})"><i class="fa-solid fa-wand-magic-sparkles"></i> ${u.total_permissoes} / ${u.total_catalogo}</span>`;
+            }
+
             // Status Pill com toggle rápido
             const isAtivo = (u.status === 'ativo');
             const statusPill = `
@@ -1528,10 +1601,14 @@ const App = {
                         </div>
                     </td>
                     <td>${roleBadge}</td>
+                    <td>${permBadge}</td>
                     <td>${statusPill}</td>
                     <td>${pinDisplay}</td>
                     <td style="font-size: 0.825rem; color: var(--text-muted);">${dataCriado}</td>
                     <td style="text-align: right; white-space: nowrap;">
+                        <button class="btn btn-secondary btn-sm" onclick="App.modalPermissoesUsuario(${u.id})" title="Gerenciar Permissões" style="margin-right: 0.25rem;">
+                            <i class="fa-solid fa-shield-halved"></i>
+                        </button>
                         <button class="btn btn-secondary btn-sm" onclick="App.modalEditarUsuario(${u.id})" title="Editar Usuário" style="margin-right: 0.25rem;">
                             <i class="fa-solid fa-pen-to-square"></i>
                         </button>
@@ -1544,6 +1621,337 @@ const App = {
         });
 
         tbody.innerHTML = html;
+    },
+
+    // --- GERENCIAMENTO DE PERMISSÕES ---
+    async modalPermissoesUsuario(id) {
+        try {
+            const res = await fetch(`api/usuarios.php?action=get_permissions&id=${id}`);
+            const data = await res.json();
+
+            if (!data.success || !data.usuario) {
+                this.toast(data.error || 'Erro ao carregar permissões do usuário.', 'error');
+                return;
+            }
+
+            this.permData = data;
+            const u = data.usuario;
+
+            document.getElementById('permUserId').value = u.id;
+            document.getElementById('permUserName').textContent = u.nome;
+            document.getElementById('permUserEmail').innerHTML = `<i class="fa-solid fa-envelope"></i> ${u.email}`;
+
+            // Avatar
+            const avatar = document.getElementById('permUserAvatar');
+            if (avatar) {
+                avatar.style.background = u.avatar_cor || '#3b82f6';
+                const nomes = (u.nome || '').trim().split(/\s+/);
+                avatar.textContent = (nomes.length >= 2 ? nomes[0][0] + nomes[nomes.length - 1][0] : (nomes[0]?.substring(0, 2) || 'US')).toUpperCase();
+            }
+
+            // Role badge & description
+            const roleBadge = document.getElementById('permUserRoleBadge');
+            const roleNameDesc = document.getElementById('permRoleNameDesc');
+            const roleLabels = { 'admin': 'Administrador', 'supervisor': 'Supervisor', 'conferente': 'Conferente', 'operador': 'Operador' };
+            const roleNome = roleLabels[u.funcao] || u.funcao;
+            if (roleBadge) {
+                roleBadge.textContent = roleNome;
+                roleBadge.className = `role-badge badge-role-${u.funcao}`;
+            }
+            if (roleNameDesc) roleNameDesc.textContent = roleNome;
+
+            // Definir modo
+            const isCustom = !u.usar_padrao;
+            const rCustom = document.getElementById('permModeCustom');
+            const rDefault = document.getElementById('permModeDefault');
+            if (rCustom) rCustom.checked = isCustom;
+            if (rDefault) rDefault.checked = !isCustom;
+
+            const lblCustom = document.getElementById('lblPermModeCustom');
+            const lblDefault = document.getElementById('lblPermModeDefault');
+            if (lblCustom) lblCustom.classList.toggle('active', isCustom);
+            if (lblDefault) lblDefault.classList.toggle('active', !isCustom);
+
+            // Renderizar permissões
+            this.renderCategoriasPermissoes(u.permissoes_efetivas, !isCustom);
+            this.atualizarContagemPermissoes();
+
+            // Limpar busca
+            const searchInput = document.getElementById('inputBuscaPermissoes');
+            if (searchInput) searchInput.value = '';
+
+            document.getElementById('modalPermissoesUsuario').classList.add('active');
+        } catch (e) {
+            console.error('Erro ao abrir permissões:', e);
+            this.toast('Erro ao obter permissões do usuário.', 'error');
+        }
+    },
+
+    renderCategoriasPermissoes(permissoesAtivas, isDisabled = false) {
+        const container = document.getElementById('permCategoriesContainer');
+        if (!container || !this.permData || !this.permData.categorias) return;
+
+        let html = '';
+        const categorias = this.permData.categorias;
+
+        for (const [catNome, itens] of Object.entries(categorias)) {
+            const totalCat = itens.length;
+            const ativasCat = itens.filter(it => permissoesAtivas.includes(it.id)).length;
+            const isAllActive = (ativasCat === totalCat);
+
+            let catIcon = 'fa-solid fa-folder';
+            if (catNome === 'Pedidos') catIcon = 'fa-solid fa-clipboard-list';
+            else if (catNome === 'Separação') catIcon = 'fa-solid fa-barcode';
+            else if (catNome === 'Histórico') catIcon = 'fa-solid fa-clock-rotate-left';
+            else if (catNome === 'De-Para EAN') catIcon = 'fa-solid fa-tags';
+            else if (catNome === 'Usuários') catIcon = 'fa-solid fa-users';
+            else if (catNome === 'Ajustes') catIcon = 'fa-solid fa-gear';
+
+            html += `
+                <div class="perm-category-card" data-cat-name="${catNome}">
+                    <div class="perm-category-header">
+                        <div class="perm-category-title">
+                            <i class="${catIcon}" style="color: var(--color-primary);"></i> ${catNome}
+                        </div>
+                        <span class="perm-category-badge ${isAllActive ? 'all-active' : ''}" id="badgeCat_${catNome}">
+                            ${ativasCat} de ${totalCat}
+                        </span>
+                    </div>
+                    <div class="perm-category-grid">
+            `;
+
+            itens.forEach(it => {
+                const isChecked = permissoesAtivas.includes(it.id);
+                html += `
+                    <div class="perm-item-card ${isChecked ? 'active' : ''} ${isDisabled ? 'disabled-mode' : ''}" 
+                         data-perm-id="${it.id}" 
+                         onclick="App.togglePermissaoItem('${it.id}')">
+                        <div class="perm-switch-wrapper" onclick="event.stopPropagation()">
+                            <input type="checkbox" 
+                                   id="chkPerm_${it.id}" 
+                                   class="perm-checkbox" 
+                                   data-perm-id="${it.id}" 
+                                   ${isChecked ? 'checked' : ''} 
+                                   ${isDisabled ? 'disabled' : ''}
+                                   onchange="App.onPermCheckboxChange('${it.id}')">
+                            <span class="perm-switch-slider"></span>
+                        </div>
+                        <div class="perm-item-info">
+                            <div class="perm-item-title">
+                                <i class="${it.icone || 'fa-solid fa-check'}" style="color: var(--text-secondary); font-size: 0.8rem;"></i>
+                                <span>${it.nome}</span>
+                            </div>
+                            <div class="perm-item-desc">${it.descricao}</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+        }
+
+        container.innerHTML = html;
+    },
+
+    alternarModoPermissao(modo) {
+        const isCustom = (modo === 'custom');
+        const rCustom = document.getElementById('permModeCustom');
+        const rDefault = document.getElementById('permModeDefault');
+        if (rCustom) rCustom.checked = isCustom;
+        if (rDefault) rDefault.checked = !isCustom;
+
+        const lblCustom = document.getElementById('lblPermModeCustom');
+        const lblDefault = document.getElementById('lblPermModeDefault');
+        if (lblCustom) lblCustom.classList.toggle('active', isCustom);
+        if (lblDefault) lblDefault.classList.toggle('active', !isCustom);
+
+        if (!this.permData) return;
+
+        let permissoesParaExibir = [];
+        if (!isCustom) {
+            // Modo padrão da função
+            const funcao = this.permData.usuario.funcao || 'operador';
+            permissoesParaExibir = this.permData.presets[funcao] || [];
+        } else {
+            // Modo customizado: usar as que já estão marcadas
+            permissoesParaExibir = this.obterPermissoesSelecionadas();
+            if (permissoesParaExibir.length === 0) {
+                permissoesParaExibir = this.permData.usuario.permissoes_efetivas || [];
+            }
+        }
+
+        this.renderCategoriasPermissoes(permissoesParaExibir, !isCustom);
+        this.atualizarContagemPermissoes();
+    },
+
+    aplicarPresetPermissoes(preset) {
+        if (!this.permData || !this.permData.presets) return;
+
+        const lista = this.permData.presets[preset];
+        if (!lista) return;
+
+        // Se estiver em modo padrão, forçar mudança para modo personalizado
+        const rCustom = document.getElementById('permModeCustom');
+        if (rCustom && !rCustom.checked) {
+            this.alternarModoPermissao('custom');
+        }
+
+        document.querySelectorAll('.perm-checkbox').forEach(chk => {
+            const permId = chk.getAttribute('data-perm-id');
+            chk.checked = lista.includes(permId);
+            const card = chk.closest('.perm-item-card');
+            if (card) card.classList.toggle('active', chk.checked);
+        });
+
+        this.atualizarContagemPermissoes();
+        this.toast(`Perfil '${preset.toUpperCase()}' aplicado com sucesso!`, 'info');
+    },
+
+    marcarTodasPermissoes(marcar) {
+        // Se estiver em modo padrão, forçar mudança para modo personalizado
+        const rCustom = document.getElementById('permModeCustom');
+        if (rCustom && !rCustom.checked) {
+            this.alternarModoPermissao('custom');
+        }
+
+        document.querySelectorAll('.perm-checkbox').forEach(chk => {
+            chk.checked = marcar;
+            const card = chk.closest('.perm-item-card');
+            if (card) card.classList.toggle('active', marcar);
+        });
+
+        this.atualizarContagemPermissoes();
+    },
+
+    togglePermissaoItem(permId) {
+        const chk = document.getElementById(`chkPerm_${permId}`);
+        if (!chk || chk.disabled) return;
+
+        chk.checked = !chk.checked;
+        this.onPermCheckboxChange(permId);
+    },
+
+    onPermCheckboxChange(permId) {
+        const chk = document.getElementById(`chkPerm_${permId}`);
+        if (!chk) return;
+
+        const card = chk.closest('.perm-item-card');
+        if (card) card.classList.toggle('active', chk.checked);
+
+        // Se o usuário mexer na permissão enquanto estiver no modo padrão, mudar para personalizado
+        const rCustom = document.getElementById('permModeCustom');
+        if (rCustom && !rCustom.checked) {
+            this.alternarModoPermissao('custom');
+        }
+
+        this.atualizarContagemPermissoes();
+    },
+
+    obterPermissoesSelecionadas() {
+        const selecionadas = [];
+        document.querySelectorAll('.perm-checkbox:checked').forEach(chk => {
+            const id = chk.getAttribute('data-perm-id');
+            if (id) selecionadas.push(id);
+        });
+        return selecionadas;
+    },
+
+    atualizarContagemPermissoes() {
+        if (!this.permData) return;
+
+        const selecionadas = this.obterPermissoesSelecionadas();
+        const totalSelecionadas = selecionadas.length;
+        const totalCatalogo = Object.keys(this.permData.catalogo || {}).length;
+
+        const lblTotal = document.getElementById('permTotalSelecionadas');
+        if (lblTotal) lblTotal.textContent = totalSelecionadas;
+
+        const badge = document.getElementById('permCountBadge');
+        if (badge) {
+            badge.innerHTML = `<i class="fa-solid fa-key"></i> ${totalSelecionadas} de ${totalCatalogo} ativas`;
+        }
+
+        // Atualizar badges por categoria
+        if (this.permData.categorias) {
+            for (const [catNome, itens] of Object.entries(this.permData.categorias)) {
+                const totalCat = itens.length;
+                const ativasCat = itens.filter(it => selecionadas.includes(it.id)).length;
+                const badgeCat = document.getElementById(`badgeCat_${catNome}`);
+                if (badgeCat) {
+                    badgeCat.textContent = `${ativasCat} de ${totalCat}`;
+                    badgeCat.classList.toggle('all-active', ativasCat === totalCat);
+                }
+            }
+        }
+    },
+
+    filtrarPermissoesUI(termo) {
+        const q = (termo || '').trim().toLowerCase();
+
+        document.querySelectorAll('.perm-category-card').forEach(catCard => {
+            let visiveisNaCategoria = 0;
+            catCard.querySelectorAll('.perm-item-card').forEach(itemCard => {
+                const permId = itemCard.getAttribute('data-perm-id') || '';
+                const title = itemCard.querySelector('.perm-item-title')?.textContent.toLowerCase() || '';
+                const desc = itemCard.querySelector('.perm-item-desc')?.textContent.toLowerCase() || '';
+
+                const matches = !q || permId.toLowerCase().includes(q) || title.includes(q) || desc.includes(q);
+                itemCard.style.display = matches ? 'flex' : 'none';
+                if (matches) visiveisNaCategoria++;
+            });
+
+            catCard.style.display = visiveisNaCategoria > 0 ? 'block' : 'none';
+        });
+    },
+
+    async salvarPermissoesUsuario() {
+        if (!this.permData || !this.permData.usuario) return;
+
+        const id = this.permData.usuario.id;
+        const usarPadrao = document.getElementById('permModeDefault')?.checked || false;
+        const permissoes = usarPadrao ? [] : this.obterPermissoesSelecionadas();
+
+        const btn = document.getElementById('btnSalvarPermissoes');
+        const btnOriginal = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando...';
+        btn.disabled = true;
+
+        try {
+            const res = await fetch('api/usuarios.php?action=save_permissions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id,
+                    usar_padrao: usarPadrao,
+                    permissoes
+                })
+            });
+            const data = await res.json();
+
+            if (!data.success) {
+                this.toast(data.error || 'Erro ao salvar permissões.', 'error');
+                return;
+            }
+
+            this.toast(data.message || 'Permissões atualizadas com sucesso!', 'success');
+            this.fecharModais();
+            this.carregarUsuarios();
+
+            // Se alterou as permissões do próprio usuário logado, atualizar na sessão
+            if (this.currentUser && this.currentUser.id === id) {
+                this.currentUser.permissoes = data.permissoes_efetivas || [];
+                this.aplicarPermissoesUI();
+            }
+        } catch (e) {
+            console.error('Erro ao salvar permissões:', e);
+            this.toast('Erro de conexão ao salvar permissões.', 'error');
+        } finally {
+            btn.innerHTML = btnOriginal;
+            btn.disabled = false;
+        }
     },
 
     limparFiltrosUsuarios() {
@@ -1834,9 +2242,11 @@ const App = {
             const data = await res.json();
 
             if (data.success && data.user) {
+                this.currentUser = data.user;
                 this.operador = data.user.nome;
                 localStorage.setItem('wms_operador', data.user.nome);
                 this.atualizarOperadorHeader();
+                this.aplicarPermissoesUI();
                 this.ocultarLoginScreen();
                 this.carregarDadosIniciais();
                 this.toast('Login realizado com sucesso!', 'success');
@@ -1860,12 +2270,14 @@ const App = {
             });
             const data = await res.json();
             if (data.success) {
+                this.currentUser = null;
                 localStorage.removeItem('wms_operador');
                 this.exibirLoginScreen();
                 this.toast('Você saiu do sistema.', 'info');
             }
         } catch (e) {
             console.error('Erro ao realizar logout:', e);
+            this.currentUser = null;
             localStorage.removeItem('wms_operador');
             this.exibirLoginScreen();
         }

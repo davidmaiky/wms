@@ -1971,3 +1971,384 @@ button, .btn, .nav-btn, .filter-chip, .status-pill, .operator-badge, .color-swat
     background: rgba(15, 23, 42, 0.8);
 }
 
+/* ==========================================================================
+   SISTEMA DE GERENCIAMENTO DE PERMISSÕES (UI / UX)
+   ========================================================================== */
+
+.btn-xs {
+    padding: 0.25rem 0.6rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: var(--radius-xs);
+    height: auto;
+}
+
+/* Banner do Usuário no Modal de Permissões */
+.perm-user-banner {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid var(--border-highlight);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.perm-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-md);
+    background: var(--color-primary);
+    color: #fff;
+    font-weight: 800;
+    font-size: 1.35rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-sm);
+    flex-shrink: 0;
+}
+
+.perm-user-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.perm-user-name {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+}
+
+.perm-user-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.perm-count-badge {
+    background: var(--color-primary-bg);
+    color: #60a5fa;
+    border: 1px solid var(--border-highlight);
+    padding: 0.15rem 0.55rem;
+    border-radius: var(--radius-full);
+    font-weight: 600;
+    font-size: 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+/* Seletor de Modo: Padrão vs Customizado */
+.perm-mode-selector {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.85rem;
+    margin-bottom: 1.25rem;
+}
+
+.perm-mode-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 0.85rem 1rem;
+    cursor: pointer;
+    transition: var(--transition);
+    user-select: none;
+}
+
+.perm-mode-option:hover {
+    background: rgba(30, 41, 59, 0.5);
+    border-color: var(--border-highlight);
+}
+
+.perm-mode-option.active {
+    background: rgba(59, 130, 246, 0.08);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.15);
+}
+
+.perm-mode-option input[type="radio"] {
+    margin-top: 0.25rem;
+    accent-color: var(--color-primary);
+}
+
+.perm-mode-content {
+    flex: 1;
+}
+
+.perm-mode-title {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.15rem;
+}
+
+.perm-mode-desc {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    line-height: 1.35;
+}
+
+/* Barra de Ferramentas e Presets */
+.perm-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 0.65rem 0.85rem;
+    margin-bottom: 1.25rem;
+}
+
+.perm-search-box {
+    position: relative;
+    flex: 1;
+    min-width: 180px;
+    max-width: 260px;
+}
+
+.perm-search-box i {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.perm-search-box input {
+    width: 100%;
+    background: rgba(11, 17, 32, 0.8);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 0.35rem 0.65rem 0.35rem 2rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.82rem;
+    transition: var(--transition);
+}
+
+.perm-search-box input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+}
+
+.perm-presets {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.perm-preset-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    margin-right: 0.25rem;
+}
+
+/* Categorias de Permissões */
+.perm-categories-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.perm-category-card {
+    background: rgba(15, 23, 42, 0.45);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    transition: var(--transition);
+}
+
+.perm-category-card:hover {
+    border-color: var(--border-highlight);
+}
+
+.perm-category-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.65rem 1rem;
+    background: rgba(30, 41, 59, 0.4);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.perm-category-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.perm-category-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.15rem 0.5rem;
+    border-radius: var(--radius-full);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-secondary);
+}
+
+.perm-category-badge.all-active {
+    background: var(--color-success-bg);
+    color: #34d399;
+    border: 1px solid var(--color-success-border);
+}
+
+.perm-category-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 0.6rem;
+    padding: 0.85rem;
+}
+
+/* Card Individual de Permissão */
+.perm-item-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.65rem 0.85rem;
+    background: rgba(11, 17, 32, 0.5);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: var(--transition);
+    user-select: none;
+}
+
+.perm-item-card:hover {
+    background: rgba(30, 41, 59, 0.6);
+    border-color: var(--border-highlight);
+}
+
+.perm-item-card.active {
+    background: rgba(59, 130, 246, 0.08);
+    border-color: rgba(59, 130, 246, 0.35);
+}
+
+.perm-item-card.disabled-mode {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+/* Switch Toggle Moderno */
+.perm-switch-wrapper {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    flex-shrink: 0;
+    margin-top: 0.2rem;
+}
+
+.perm-switch-wrapper input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.perm-switch-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #334155;
+    transition: 0.25s;
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
+}
+
+.perm-switch-slider:before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: 0.25s;
+    border-radius: 50%;
+}
+
+.perm-switch-wrapper input:checked + .perm-switch-slider {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary-hover);
+}
+
+.perm-switch-wrapper input:checked + .perm-switch-slider:before {
+    transform: translateX(16px);
+}
+
+.perm-item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.perm-item-title {
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.15rem;
+}
+
+.perm-item-desc {
+    font-size: 0.73rem;
+    color: var(--text-secondary);
+    line-height: 1.35;
+}
+
+/* Badges na Tabela de Usuários */
+.perm-badge-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.65rem;
+    border-radius: var(--radius-full);
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.perm-badge-pill.full-admin {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(59, 130, 246, 0.2));
+    color: #c084fc;
+    border: 1px solid rgba(168, 85, 247, 0.35);
+}
+
+.perm-badge-pill.custom-badge {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.perm-badge-pill.default-badge {
+    background: rgba(100, 116, 139, 0.15);
+    color: #94a3b8;
+    border: 1px solid rgba(100, 116, 139, 0.25);
+}
+
+

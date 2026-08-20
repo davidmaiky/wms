@@ -16,11 +16,13 @@ try {
         // LIST: Listar todos os usuários com filtros e estatísticas
         // -------------------------------------------------------------
         case 'list':
+            requirePermission('usuarios_visualizar');
+
             $q = trim($_GET['q'] ?? '');
             $funcao = trim($_GET['funcao'] ?? '');
             $status = trim($_GET['status'] ?? '');
 
-            $sql = "SELECT id, nome, email, funcao, (CASE WHEN pin IS NOT NULL AND pin != '' THEN 1 ELSE 0 END) AS has_pin, status, avatar_cor, ultimo_acesso, criado_em, atualizado_em FROM usuarios WHERE 1=1";
+            $sql = "SELECT id, nome, email, funcao, (CASE WHEN pin IS NOT NULL AND pin != '' THEN 1 ELSE 0 END) AS has_pin, status, avatar_cor, permissoes, ultimo_acesso, criado_em, atualizado_em FROM usuarios WHERE 1=1";
             $params = [];
 
             if ($q !== '') {
@@ -44,6 +46,19 @@ try {
             $stmt = $db->prepare($sql);
             $stmt->execute($params);
             $usuarios = $stmt->fetchAll();
+
+            $catalogo = getCatalogoPermissoes();
+            $totalPermissoesCatalogo = count($catalogo);
+
+            // Enriquecer usuários com permissões efetivas
+            foreach ($usuarios as &$u) {
+                $efetivas = getUserEffectivePermissions($u);
+                $u['permissoes_efetivas'] = $efetivas;
+                $u['total_permissoes'] = count($efetivas);
+                $u['total_catalogo'] = $totalPermissoesCatalogo;
+                $u['tem_customizacao'] = !empty($u['permissoes']);
+                $u['is_admin'] = ($u['funcao'] === 'admin');
+            }
 
             // Estatísticas gerais
             $statsStmt = $db->query("
@@ -70,18 +85,24 @@ try {
         // GET: Obter usuário por ID
         // -------------------------------------------------------------
         case 'get':
+            requirePermission('usuarios_visualizar');
+
             $id = (int)($_GET['id'] ?? $_POST['id'] ?? 0);
             if (!$id) {
                 jsonError("ID do usuário não informado.");
             }
 
-            $stmt = $db->prepare("SELECT id, nome, email, funcao, (CASE WHEN pin IS NOT NULL AND pin != '' THEN 1 ELSE 0 END) AS has_pin, status, avatar_cor, ultimo_acesso, criado_em, atualizado_em FROM usuarios WHERE id = ?");
+            $stmt = $db->prepare("SELECT id, nome, email, funcao, (CASE WHEN pin IS NOT NULL AND pin != '' THEN 1 ELSE 0 END) AS has_pin, status, avatar_cor, permissoes, ultimo_acesso, criado_em, atualizado_em FROM usuarios WHERE id = ?");
             $stmt->execute([$id]);
             $usuario = $stmt->fetch();
 
             if (!$usuario) {
                 jsonError("Usuário não encontrado.", 404);
             }
+
+            $usuario['permissoes_efetivas'] = getUserEffectivePermissions($usuario);
+            $usuario['permissoes_custom'] = !empty($usuario['permissoes']) ? (is_array($usuario['permissoes']) ? $usuario['permissoes'] : json_decode($usuario['permissoes'], true)) : null;
+            $usuario['usar_padrao'] = empty($usuario['permissoes']);
 
             jsonResponse([
                 'success' => true,
@@ -90,15 +111,139 @@ try {
             break;
 
         // -------------------------------------------------------------
+        // GET_PERMISSIONS: Obter dados completos de permissões e catálogo
+        // -------------------------------------------------------------
+        case 'get_permissions':
+            requirePermission('usuarios_visualizar');
+
+            $id = (int)($_GET['id'] ?? $_POST['id'] ?? 0);
+            if (!$id) {
+                jsonError("ID do usuário não informado.");
+            }
+
+            $stmt = $db->prepare("SELECT id, nome, email, funcao, status, avatar_cor, permissoes FROM usuarios WHERE id = ?");
+            $stmt->execute([$id]);
+            $usuario = $stmt->fetch();
+
+            if (!$usuario) {
+                jsonError("Usuário não encontrado.", 404);
+            }
+
+            $catalogo = getCatalogoPermissoes();
+            $custom = !empty($usuario['permissoes']) ? (is_array($usuario['permissoes']) ? $usuario['permissoes'] : json_decode($usuario['permissoes'], true)) : null;
+            $efetivas = getUserEffectivePermissions($usuario);
+
+            // Agrupar catálogo por categorias
+            $categorias = [];
+            foreach ($catalogo as $key => $info) {
+                $cat = $info['categoria'] ?? 'Geral';
+                if (!isset($categorias[$cat])) {
+                    $categorias[$cat] = [];
+                }
+                $categorias[$cat][] = $info;
+            }
+
+            // Presets padrão para todas as funções
+            $presets = [
+                'admin' => getRoleDefaultPermissions('admin'),
+                'supervisor' => getRoleDefaultPermissions('supervisor'),
+                'conferente' => getRoleDefaultPermissions('conferente'),
+                'operador' => getRoleDefaultPermissions('operador')
+            ];
+
+            jsonResponse([
+                'success' => true,
+                'usuario' => [
+                    'id' => (int)$usuario['id'],
+                    'nome' => $usuario['nome'],
+                    'email' => $usuario['email'],
+                    'funcao' => $usuario['funcao'],
+                    'status' => $usuario['status'],
+                    'avatar_cor' => $usuario['avatar_cor'],
+                    'permissoes_custom' => $custom,
+                    'permissoes_efetivas' => $efetivas,
+                    'usar_padrao' => ($custom === null)
+                ],
+                'catalogo' => $catalogo,
+                'categorias' => $categorias,
+                'presets' => $presets
+            ]);
+            break;
+
+        // -------------------------------------------------------------
+        // SAVE_PERMISSIONS: Salvar permissões customizadas de um usuário
+        // -------------------------------------------------------------
+        case 'save_permissions':
+            requirePermission('permissoes_gerenciar');
+
+            $id = (int)($_POST['id'] ?? 0);
+            if (!$id) {
+                jsonError("ID do usuário não informado.");
+            }
+
+            $usarPadrao = isset($_POST['usar_padrao']) ? filter_var($_POST['usar_padrao'], FILTER_VALIDATE_BOOLEAN) : false;
+            $permissoesInput = $_POST['permissoes'] ?? [];
+
+            $stmt = $db->prepare("SELECT id, nome, email, funcao, status, avatar_cor FROM usuarios WHERE id = ?");
+            $stmt->execute([$id]);
+            $usuario = $stmt->fetch();
+
+            if (!$usuario) {
+                jsonError("Usuário não encontrado.", 404);
+            }
+
+            if ($usarPadrao) {
+                $permissoesDb = null;
+            } else {
+                if (is_string($permissoesInput)) {
+                    $decoded = json_decode($permissoesInput, true);
+                    $permissoesInput = is_array($decoded) ? $decoded : [];
+                }
+                if (!is_array($permissoesInput)) {
+                    $permissoesInput = [];
+                }
+
+                // Filtrar apenas chaves válidas do catálogo
+                $catalogo = getCatalogoPermissoes();
+                $chavesValidas = array_keys($catalogo);
+                $permissoesFiltradas = array_values(array_intersect($permissoesInput, $chavesValidas));
+
+                $permissoesDb = json_encode($permissoesFiltradas, JSON_UNESCAPED_UNICODE);
+            }
+
+            $upStmt = $db->prepare("UPDATE usuarios SET permissoes = ?, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?");
+            $upStmt->execute([$permissoesDb, $id]);
+
+            // Recarregar dados atualizados
+            $usuario['permissoes'] = $permissoesDb;
+            $permissoesEfetivas = getUserEffectivePermissions($usuario);
+
+            // Se o usuário modificado for o próprio usuário logado na sessão, atualizar sua sessão
+            if (isset($_SESSION['wms_user']) && (int)$_SESSION['wms_user']['id'] === $id) {
+                $_SESSION['wms_user']['permissoes'] = $permissoesEfetivas;
+            }
+
+            jsonResponse([
+                'success' => true,
+                'message' => "Permissões do usuário '{$usuario['nome']}' atualizadas com sucesso!",
+                'permissoes_efetivas' => $permissoesEfetivas,
+                'usar_padrao' => ($permissoesDb === null)
+            ]);
+            break;
+
+        // -------------------------------------------------------------
         // CREATE: Cadastrar novo usuário
         // -------------------------------------------------------------
         case 'create':
+            requirePermission('usuarios_gerenciar');
+
             $nome = trim($_POST['nome'] ?? '');
             $email = trim(strtolower($_POST['email'] ?? ''));
             $funcao = trim($_POST['funcao'] ?? 'operador');
             $pin = trim($_POST['pin'] ?? '');
             $status = trim($_POST['status'] ?? 'ativo');
             $avatarCor = trim($_POST['avatar_cor'] ?? '#3b82f6');
+            $permissoes = $_POST['permissoes'] ?? null;
 
             if (empty($nome)) {
                 jsonError("O nome completo é obrigatório.");
@@ -121,11 +266,24 @@ try {
                 jsonError("Já existe um usuário cadastrado com o e-mail '$email'.");
             }
 
+            $permissoesDb = null;
+            if ($permissoes !== null && !empty($permissoes)) {
+                if (is_string($permissoes)) {
+                    $decoded = json_decode($permissoes, true);
+                    $permissoes = is_array($decoded) ? $decoded : [];
+                }
+                if (is_array($permissoes)) {
+                    $catalogo = getCatalogoPermissoes();
+                    $permissoesFiltradas = array_values(array_intersect($permissoes, array_keys($catalogo)));
+                    $permissoesDb = json_encode($permissoesFiltradas, JSON_UNESCAPED_UNICODE);
+                }
+            }
+
             $stmt = $db->prepare("
-                INSERT INTO usuarios (nome, email, funcao, pin, status, avatar_cor, criado_em, atualizado_em)
-                VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                INSERT INTO usuarios (nome, email, funcao, pin, status, avatar_cor, permissoes, criado_em, atualizado_em)
+                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             ");
-            $stmt->execute([$nome, $email, $funcao, $pin, $status, $avatarCor]);
+            $stmt->execute([$nome, $email, $funcao, $pin, $status, $avatarCor, $permissoesDb]);
             $novoId = $db->lastInsertId();
 
             jsonResponse([
@@ -139,6 +297,8 @@ try {
         // UPDATE: Atualizar dados de um usuário
         // -------------------------------------------------------------
         case 'update':
+            requirePermission('usuarios_gerenciar');
+
             $id = (int)($_POST['id'] ?? 0);
             if (!$id) {
                 jsonError("ID do usuário não informado.");
@@ -214,6 +374,16 @@ try {
                 $stmt->execute([$nome, $email, $funcao, $status, $avatarCor, $id]);
             }
 
+            // Atualizar sessão se for o usuário logado
+            if (isset($_SESSION['wms_user']) && (int)$_SESSION['wms_user']['id'] === $id) {
+                $_SESSION['wms_user']['nome'] = $nome;
+                $_SESSION['wms_user']['email'] = $email;
+                $_SESSION['wms_user']['funcao'] = $funcao;
+                $_SESSION['wms_user']['avatar_cor'] = $avatarCor;
+                $userAtual['funcao'] = $funcao;
+                $_SESSION['wms_user']['permissoes'] = getUserEffectivePermissions($userAtual);
+            }
+
             jsonResponse([
                 'success' => true,
                 'message' => "Usuário '$nome' atualizado com sucesso!"
@@ -224,6 +394,8 @@ try {
         // TOGGLE_STATUS: Alternar ativo/inativo
         // -------------------------------------------------------------
         case 'toggle_status':
+            requirePermission('usuarios_gerenciar');
+
             $id = (int)($_POST['id'] ?? 0);
             if (!$id) {
                 jsonError("ID do usuário não informado.");
@@ -260,6 +432,8 @@ try {
         // DELETE: Excluir usuário
         // -------------------------------------------------------------
         case 'delete':
+            requirePermission('usuarios_gerenciar');
+
             $id = (int)($_POST['id'] ?? 0);
             if (!$id) {
                 jsonError("ID do usuário não informado.");
@@ -318,7 +492,7 @@ try {
                 jsonError("E-mail e senha são obrigatórios.");
             }
 
-            $stmt = $db->prepare("SELECT id, nome, email, funcao, pin, status, avatar_cor FROM usuarios WHERE email = ? LIMIT 1");
+            $stmt = $db->prepare("SELECT id, nome, email, funcao, pin, status, avatar_cor, permissoes FROM usuarios WHERE email = ? LIMIT 1");
             $stmt->execute([$email]);
             $user = $stmt->fetch();
 
@@ -338,13 +512,16 @@ try {
             $upStmt = $db->prepare("UPDATE usuarios SET ultimo_acesso = CURRENT_TIMESTAMP WHERE id = ?");
             $upStmt->execute([$user['id']]);
 
+            $permissoesEfetivas = getUserEffectivePermissions($user);
+
             // Definir sessão
             $_SESSION['wms_user'] = [
-                'id' => $user['id'],
+                'id' => (int)$user['id'],
                 'nome' => $user['nome'],
                 'email' => $user['email'],
                 'funcao' => $user['funcao'],
-                'avatar_cor' => $user['avatar_cor']
+                'avatar_cor' => $user['avatar_cor'],
+                'permissoes' => $permissoesEfetivas
             ];
 
             jsonResponse([
@@ -379,6 +556,19 @@ try {
         // -------------------------------------------------------------
         case 'me':
             if (isset($_SESSION['wms_user'])) {
+                // Sincronizar permissões atuais do banco para garantir que mudanças refletem sem precisar relogar
+                $stmt = $db->prepare("SELECT id, nome, email, funcao, status, avatar_cor, permissoes FROM usuarios WHERE id = ?");
+                $stmt->execute([$_SESSION['wms_user']['id']]);
+                $userDb = $stmt->fetch();
+
+                if ($userDb && $userDb['status'] === 'ativo') {
+                    $_SESSION['wms_user']['nome'] = $userDb['nome'];
+                    $_SESSION['wms_user']['email'] = $userDb['email'];
+                    $_SESSION['wms_user']['funcao'] = $userDb['funcao'];
+                    $_SESSION['wms_user']['avatar_cor'] = $userDb['avatar_cor'];
+                    $_SESSION['wms_user']['permissoes'] = getUserEffectivePermissions($userDb);
+                }
+
                 jsonResponse([
                     'success' => true,
                     'user' => $_SESSION['wms_user']

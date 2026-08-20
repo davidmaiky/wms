@@ -566,15 +566,16 @@
                         <tr>
                             <th>Usuário</th>
                             <th>Função / Cargo</th>
+                            <th>Permissões de Acesso</th>
                             <th>Status</th>
-                            <th>PIN de Acesso</th>
+                            <th>PIN</th>
                             <th>Cadastrado em</th>
                             <th style="text-align: right;">Ações</th>
                         </tr>
                     </thead>
                     <tbody id="usuariosTableBody">
                         <tr>
-                            <td colspan="6" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+                            <td colspan="7" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
                                 <i class="fa-solid fa-spinner fa-spin fa-2x"></i><br><br>Carregando usuários...
                             </td>
                         </tr>
@@ -747,6 +748,96 @@
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Gerenciamento de Permissões de Usuário -->
+    <div class="modal-overlay" id="modalPermissoesUsuario">
+        <div class="modal-card modal-permissoes-card" style="max-width: 780px; width: 95%; max-height: 92vh; display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <div>
+                    <h3 style="display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fa-solid fa-shield-halved text-primary"></i> 
+                        <span>Permissões de Acesso</span>
+                    </h3>
+                    <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0.2rem;">
+                        Configure o que este usuário pode visualizar e executar no sistema WMS.
+                    </p>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="modal-body" style="padding: 1.25rem; overflow-y: auto; flex: 1;">
+                <input type="hidden" id="permUserId" value="">
+                
+                <!-- Profile Header Card -->
+                <div class="perm-user-banner" id="permUserBanner">
+                    <div class="perm-avatar" id="permUserAvatar">D</div>
+                    <div class="perm-user-info">
+                        <div class="perm-user-name" id="permUserName">David Silva</div>
+                        <div class="perm-user-meta">
+                            <span id="permUserEmail"><i class="fa-solid fa-envelope"></i> david@primepro.com.br</span>
+                            <span class="role-badge" id="permUserRoleBadge">Administrador</span>
+                            <span class="perm-count-badge" id="permCountBadge"><i class="fa-solid fa-key"></i> 15 de 15 ativas</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mode Switcher: Role Default vs Custom -->
+                <div class="perm-mode-selector">
+                    <label class="perm-mode-option" id="lblPermModeDefault">
+                        <input type="radio" name="permMode" id="permModeDefault" value="default" onchange="App.alternarModoPermissao('default')">
+                        <div class="perm-mode-content">
+                            <div class="perm-mode-title"><i class="fa-solid fa-wand-magic-sparkles"></i> Padrão do Cargo</div>
+                            <div class="perm-mode-desc">Sincroniza automaticamente com a função (<span id="permRoleNameDesc">Operador</span>).</div>
+                        </div>
+                    </label>
+
+                    <label class="perm-mode-option active" id="lblPermModeCustom">
+                        <input type="radio" name="permMode" id="permModeCustom" value="custom" onchange="App.alternarModoPermissao('custom')" checked>
+                        <div class="perm-mode-content">
+                            <div class="perm-mode-title"><i class="fa-solid fa-sliders"></i> Permissões Personalizadas</div>
+                            <div class="perm-mode-desc">Defina manualmente cada permissão individual para este usuário.</div>
+                        </div>
+                    </label>
+                </div>
+
+                <!-- Presets and Search Bar -->
+                <div class="perm-toolbar" id="permToolbar">
+                    <div class="perm-search-box">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" id="inputBuscaPermissoes" placeholder="Filtrar permissões..." oninput="App.filtrarPermissoesUI(this.value)">
+                    </div>
+
+                    <div class="perm-presets">
+                        <span class="perm-preset-label"><i class="fa-solid fa-bolt"></i> Perfis:</span>
+                        <button type="button" class="btn btn-secondary btn-xs" onclick="App.aplicarPresetPermissoes('operador')">Operador</button>
+                        <button type="button" class="btn btn-secondary btn-xs" onclick="App.aplicarPresetPermissoes('conferente')">Conferente</button>
+                        <button type="button" class="btn btn-secondary btn-xs" onclick="App.aplicarPresetPermissoes('supervisor')">Supervisor</button>
+                        <button type="button" class="btn btn-secondary btn-xs" onclick="App.aplicarPresetPermissoes('admin')">Admin</button>
+                        <div style="width: 1px; height: 18px; background: var(--border-color); margin: 0 0.2rem;"></div>
+                        <button type="button" class="btn btn-secondary btn-xs" onclick="App.marcarTodasPermissoes(true)" title="Marcar todas"><i class="fa-solid fa-check-double"></i> Todas</button>
+                        <button type="button" class="btn btn-secondary btn-xs" onclick="App.marcarTodasPermissoes(false)" title="Desmarcar todas"><i class="fa-solid fa-ban"></i> Limpar</button>
+                    </div>
+                </div>
+
+                <!-- Category Grouped Permissions Grid -->
+                <div class="perm-categories-container" id="permCategoriesContainer">
+                    <!-- Gerado dinamicamente via JS -->
+                </div>
+            </div>
+
+            <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+                <div id="permFooterStatus" style="font-size: 0.85rem; color: var(--text-secondary);">
+                    <span id="permTotalSelecionadas" style="font-weight: 700; color: var(--text-primary);">0</span> permissões ativas
+                </div>
+                <div style="display: flex; gap: 0.75rem;">
+                    <button type="button" class="btn btn-secondary" onclick="App.fecharModais()">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btnSalvarPermissoes" onclick="App.salvarPermissoesUsuario()">
+                        <i class="fa-solid fa-floppy-disk"></i> Salvar Permissões
+                    </button>
+                </div>
             </div>
         </div>
     </div>

@@ -16,6 +16,8 @@ if (is_array($inputJSON)) {
 try {
     switch ($action) {
         case 'iniciar':
+            requirePermission('pedidos_iniciar_separacao');
+
             $codigo = (int)($_POST['numero_pedido'] ?? 0);
             $operador = trim($_POST['operador'] ?? getConfig('operador_padrao', 'Operador'));
 
@@ -112,6 +114,8 @@ try {
             break;
 
         case 'bipar':
+            requirePermission('conferencia_bipar');
+
             $conferenciaId = (int)($_POST['conferencia_id'] ?? 0);
             $codigoBipado = trim((string)($_POST['codigo_bipado'] ?? ''));
             $quantidade = (float)($_POST['quantidade'] ?? 1);
@@ -267,6 +271,8 @@ try {
             break;
 
         case 'ajustar_item':
+            requirePermission('conferencia_bipar');
+
             $itemId = (int)($_POST['item_id'] ?? 0);
             $novaQuantidade = max(0, (float)($_POST['quantidade'] ?? 0));
             $operador = trim($_POST['operador'] ?? 'Operador');
@@ -303,6 +309,8 @@ try {
             break;
 
         case 'adicionar_volume':
+            requirePermission('conferencia_adicionar_volume');
+
             $conferenciaId = (int)($_POST['conferencia_id'] ?? 0);
             $pesoKg = (float)($_POST['peso_kg'] ?? 0);
             $dimensoes = trim($_POST['dimensoes'] ?? '');
@@ -329,6 +337,8 @@ try {
             break;
 
         case 'remover_volume':
+            requirePermission('conferencia_adicionar_volume');
+
             $volumeId = (int)($_POST['volume_id'] ?? 0);
             if (!$volumeId) jsonError("ID do volume não informado.");
 
@@ -357,6 +367,8 @@ try {
             break;
 
         case 'finalizar':
+            requirePermission('conferencia_finalizar');
+
             $conferenciaId = (int)($_POST['conferencia_id'] ?? 0);
             $observacoes = trim($_POST['observacoes'] ?? '');
             $operador = trim($_POST['operador'] ?? 'Operador');
@@ -389,6 +401,8 @@ try {
             break;
 
         case 'cancelar':
+            requirePermission('pedidos_cancelar');
+
             $conferenciaId = (int)($_POST['conferencia_id'] ?? 0);
             $numeroPedido = (int)($_POST['numero_pedido'] ?? 0);
             $motivo = trim($_POST['motivo'] ?? 'Cancelado pelo operador');
@@ -435,6 +449,8 @@ try {
             break;
 
         case 'reiniciar':
+            requirePermission('pedidos_iniciar_separacao');
+
             $conferenciaId = (int)($_POST['conferencia_id'] ?? 0);
             if (!$conferenciaId) jsonError("ID da conferência não informado.");
 
@@ -447,6 +463,8 @@ try {
             break;
 
         case 'historico':
+            requirePermission('historico_visualizar');
+
             $busca = $_GET['busca'] ?? '';
             $status = $_GET['status'] ?? '';
             $limite = (int)($_GET['limite'] ?? 50);
@@ -483,6 +501,9 @@ try {
 
         case 'romaneio':
         case 'obter':
+            if (!hasPermission('historico_imprimir_romaneio') && !hasPermission('historico_visualizar') && !hasPermission('pedidos_visualizar')) {
+                requirePermission('historico_imprimir_romaneio');
+            }
             $confId = (int)($_GET['conferencia_id'] ?? $_POST['conferencia_id'] ?? 0);
             $numPed = (int)($_GET['numero_pedido'] ?? $_POST['numero_pedido'] ?? 0);
 
