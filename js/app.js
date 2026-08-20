@@ -56,6 +56,15 @@ const App = {
             });
         }
 
+        const inputManualInv = document.getElementById('inputManualBarcodeInv');
+        if (inputManualInv) {
+            inputManualInv.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.biparInventarioManual();
+                }
+            });
+        }
+
         // Verificar se há uma sessão de login ativa
         this.checkSession().then(authenticated => {
             if (authenticated) {
@@ -209,6 +218,8 @@ const App = {
             'pedidos': this.hasPermission('pedidos_visualizar'),
             'conferencia': this.hasPermission('conferencia_bipar') || this.hasPermission('pedidos_iniciar_separacao'),
             'recebimento': this.hasPermission('recebimento_visualizar'),
+            'inventario': this.hasPermission('inventario_visualizar'),
+            'devolucoes': this.hasPermission('devolucao_visualizar'),
             'historico': this.hasPermission('historico_visualizar'),
             'locais': this.hasPermission('locais_visualizar'),
             'eans': this.hasPermission('eans_visualizar'),
@@ -338,6 +349,8 @@ const App = {
             const permMap = {
                 'pedidos': 'pedidos_visualizar',
                 'recebimento': 'recebimento_visualizar',
+                'inventario': 'inventario_visualizar',
+                'devolucoes': 'devolucao_visualizar',
                 'historico': 'historico_visualizar',
                 'locais': 'locais_visualizar',
                 'eans': 'eans_visualizar',
@@ -383,6 +396,12 @@ const App = {
             }
         } else if (viewName === 'recebimento') {
             this.carregarRecebimentos();
+            this.stopCamera();
+        } else if (viewName === 'inventario') {
+            this.carregarInventarios();
+            this.stopCamera();
+        } else if (viewName === 'devolucoes') {
+            this.carregarDevolucoes();
             this.stopCamera();
         } else if (viewName === 'historico') {
             this.carregarHistorico();
@@ -828,6 +847,12 @@ const App = {
         // Se estiver na tela de recebimento ativo
         if (this.currentView === 'recebimento' && this.recebimentoAtivo) {
             this.biparRecebimento(code, type);
+            return;
+        }
+
+        // Se estiver na tela de inventário ativo
+        if (this.currentView === 'inventario' && this.inventarioAtivo) {
+            this.biparInventario(code, type);
             return;
         }
 
@@ -3509,6 +3534,888 @@ const App = {
             if (laser) laser.style.display = 'block';
         } else {
             this.toast('Não foi possível iniciar a câmera para conferência de entrada.', 'error');
+        }
+    },
+
+    // =========================================================================
+    // MÓDULO 9: INVENTÁRIO CÍCLICO & CONTAGEM DE ESTOQUE (CYCLE COUNTING)
+    // =========================================================================
+    inventariosCache: [],
+    inventarioAtivo: null,
+
+    async carregarInventarios() {
+        const busca = document.getElementById('filtroInvBusca')?.value || '';
+        const status = document.getElementById('filtroInvStatus')?.value || '';
+
+        const tbody = document.getElementById('inventariosTableBody');
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center py-4 text-muted">
+                        <i class="fa-solid fa-spinner fa-spin fa-2x mb-2"></i><br>Carregando contagens de inventário...
+                    </td>
+                </tr>
+            `;
+        }
+
+        try {
+            const params = new URLSearchParams({ busca, status, limite: 100 });
+            const res = await fetch(`api/inventario.php?action=listar&${params.toString()}`);
+            const data = await res.json();
+
+            if (!data.success) {
+                if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger">${data.error || 'Erro ao carregar inventários.'}</td></tr>`;
+                return;
+            }
+
+            this.inventariosCache = data.inventarios || [];
+
+            // Atualizar KPIs
+            if (data.stats) {
+                const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+                setVal('kpiInvTotal', data.stats.total || 0);
+                setVal('kpiInvEmContagem', data.stats.em_contagem || 0);
+                setVal('kpiInvFinalizados', data.stats.finalizados || 0);
+                setVal('kpiInvAcuracidadeMedia', data.stats.acuracidade_media || 100);
+            }
+
+            if (!this.inventariosCache || this.inventariosCache.length === 0) {
+                if (tbody) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="8" class="text-center py-4 text-muted">
+                                <i class="fa-solid fa-clipboard-check fa-2x mb-2 opacity-50"></i><br>Nenhuma contagem de inventário cadastrada.
+                            </td>
+                        </tr>
+                    `;
+                }
+                return;
+            }
+
+            let html = '';
+            this.inventariosCache.forEach(inv => {
+                const statusBadge = {
+                    'pendente': '<span class="badge badge-pending"><i class="fa-regular fa-clock me-1"></i> Pendente</span>',
+                    'em_contagem': '<span class="badge badge-progress"><i class="fa-solid fa-spinner fa-spin me-1"></i> Em Contagem</span>',
+                    'finalizado': '<span class="badge bg-warning-light text-warning"><i class="fa-solid fa-scale-balanced me-1"></i> Finalizado (Aguardando Ajuste)</span>',
+                    'ajustado': '<span class="badge badge-success"><i class="fa-solid fa-check-double me-1"></i> Conciliado & Ajustado</span>',
+                    'cancelado': '<span class="badge bg-danger-light text-danger"><i class="fa-solid fa-ban me-1"></i> Cancelado</span>'
+                }[inv.status] || `<span class="badge badge-pending">${inv.status}</span>`;
+
+                const modoBadge = (inv.modo === 'cego')
+                    ? '<span class="badge bg-secondary-light text-secondary"><i class="fa-solid fa-eye-slash me-1"></i> Cego</span>'
+                    : '<span class="badge bg-info-light text-info"><i class="fa-solid fa-eye me-1"></i> Aberto</span>';
+
+                const tipoLabel = {
+                    'localizacao': `Faixa: Rua ${inv.rua_inicio} até ${inv.rua_fim}`,
+                    'sku': 'Lista de SKUs',
+                    'total': 'Armazém Geral'
+                }[inv.tipo] || inv.tipo;
+
+                const acuracidadePct = (inv.status === 'finalizado' || inv.status === 'ajustado')
+                    ? `<span class="fw-bold ${parseFloat(inv.acuracidade_pct) >= 95 ? 'text-success' : 'text-danger'}">${inv.acuracidade_pct}%</span>`
+                    : '<span class="text-muted fs-xs">Em apuração</span>';
+
+                html += `
+                    <tr>
+                        <td>
+                            <strong>${inv.titulo}</strong><br>
+                            <span class="text-muted fs-xs">${inv.armazem || 'Principal'} • Criado em ${inv.criado_em ? new Date(inv.criado_em).toLocaleDateString('pt-BR') : ''}</span>
+                        </td>
+                        <td><span class="fs-xs">${tipoLabel}</span></td>
+                        <td>${modoBadge}</td>
+                        <td>
+                            <strong>${inv.total_posicoes_skus || 0}</strong> SKU(s)<br>
+                            ${inv.total_divergencias > 0 ? `<span class="text-danger fs-xs font-mono fw-bold">${inv.total_divergencias} divergência(s)</span>` : '<span class="text-success fs-xs">Sem divergências</span>'}
+                        </td>
+                        <td>${acuracidadePct}</td>
+                        <td>${statusBadge}</td>
+                        <td><span class="fs-xs text-muted"><i class="fa-solid fa-user me-1"></i> ${inv.operador || 'Operador'}</span></td>
+                        <td class="text-end">
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-primary" onclick="App.iniciarContagemInventario(${inv.id})" title="Abrir Contagem / Bipar">
+                                    <i class="fa-solid fa-barcode me-1"></i> Contar
+                                </button>
+                                ${inv.status === 'finalizado' || inv.status === 'em_contagem' || inv.status === 'ajustado' ? `
+                                    <button class="btn btn-alt-info" onclick="App.abrirRelatorioConciliacao(${inv.id})" title="Relatório de Divergências">
+                                        <i class="fa-solid fa-scale-balanced"></i>
+                                    </button>
+                                ` : ''}
+                                ${inv.status === 'pendente' ? `
+                                    <button class="btn btn-alt-danger" onclick="App.cancelarInventario(${inv.id})" title="Cancelar Inventário">
+                                        <i class="fa-solid fa-ban"></i>
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            if (tbody) tbody.innerHTML = html;
+        } catch (e) {
+            console.error('Erro ao carregar inventários:', e);
+            if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger">Erro de conexão ao carregar inventários.</td></tr>`;
+        }
+    },
+
+    limparFiltrosInventario() {
+        const b = document.getElementById('filtroInvBusca'); if (b) b.value = '';
+        const s = document.getElementById('filtroInvStatus'); if (s) s.value = '';
+        this.carregarInventarios();
+    },
+
+    modalNovoInventario() {
+        document.getElementById('formNovoInventario')?.reset();
+        this.alternarCamposTipoInventario();
+        document.getElementById('modalNovoInventario').classList.add('active');
+        document.getElementById('invTitulo')?.focus();
+    },
+
+    alternarCamposTipoInventario() {
+        const tipo = document.getElementById('invTipo')?.value;
+        const camposLoc = document.getElementById('invCamposLocalizacao');
+        const camposSku = document.getElementById('invCamposSku');
+
+        if (tipo === 'localizacao') {
+            if (camposLoc) camposLoc.style.display = 'flex';
+            if (camposSku) camposSku.style.display = 'none';
+        } else if (tipo === 'sku') {
+            if (camposLoc) camposLoc.style.display = 'none';
+            if (camposSku) camposSku.style.display = 'block';
+        } else {
+            if (camposLoc) camposLoc.style.display = 'none';
+            if (camposSku) camposSku.style.display = 'none';
+        }
+    },
+
+    async salvarNovoInventario(e) {
+        if (e) e.preventDefault();
+
+        const titulo = document.getElementById('invTitulo').value.trim();
+        const tipo = document.getElementById('invTipo').value;
+        const modo = document.getElementById('invModo').value;
+        const armazem = document.getElementById('invArmazem')?.value.trim() || 'Principal';
+        const rua_inicio = document.getElementById('invRuaInicio')?.value.trim() || 'A';
+        const rua_fim = document.getElementById('invRuaFim')?.value.trim() || rua_inicio;
+        const skusTxt = document.getElementById('invSkusText')?.value.trim() || '';
+        const skus = skusTxt ? skusTxt.split('\n').map(s => s.trim()).filter(Boolean) : [];
+
+        try {
+            const res = await fetch('api/inventario.php?action=criar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ titulo, tipo, modo, armazem, rua_inicio, rua_fim, skus })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                this.toast(data.message || 'Ordem de inventário criada!', 'success');
+                this.fecharModais();
+                this.carregarInventarios();
+                if (data.inventario_id) {
+                    this.iniciarContagemInventario(data.inventario_id);
+                }
+            } else {
+                this.toast(data.error || 'Erro ao criar inventário.', 'error');
+            }
+        } catch (err) {
+            console.error('Erro ao salvar inventário:', err);
+            this.toast('Erro de conexão ao criar inventário.', 'error');
+        }
+    },
+
+    async iniciarContagemInventario(invId) {
+        try {
+            const res = await fetch('api/inventario.php?action=iniciar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: invId, operador: this.operador })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                this.inventarioAtivo = data;
+                this.renderizarContagemInventario(data);
+                document.getElementById('inventarioListaContainer').style.display = 'none';
+                document.getElementById('inventarioAtivoContainer').style.display = 'block';
+                document.getElementById('inputManualBarcodeInv')?.focus();
+            } else {
+                this.toast(data.error || 'Erro ao abrir inventário.', 'error');
+            }
+        } catch (err) {
+            console.error('Erro ao iniciar contagem:', err);
+            this.toast('Erro ao abrir sessão de contagem.', 'error');
+        }
+    },
+
+    fecharContagemInventario() {
+        this.inventarioAtivo = null;
+        this.stopCamera();
+        document.getElementById('inventarioAtivoContainer').style.display = 'none';
+        document.getElementById('inventarioListaContainer').style.display = 'block';
+        this.carregarInventarios();
+    },
+
+    renderizarContagemInventario(data) {
+        const inv = data.inventario;
+        const itens = data.itens || [];
+        const logs = data.logs || [];
+
+        document.getElementById('lblInvTitulo').textContent = inv.titulo || 'Inventário';
+        document.getElementById('lblInvAbrangencia').textContent = `${inv.armazem || 'Principal'} • Rua ${inv.rua_inicio || ''} até ${inv.rua_fim || ''}`;
+        document.getElementById('lblInvModo').textContent = (inv.modo === 'cego') ? 'Contagem Cega' : 'Contagem Aberta';
+        document.getElementById('lblInvTotalContado').textContent = inv.total_itens_contados || 0;
+        document.getElementById('lblInvTotalPosicoes').textContent = itens.length;
+        document.getElementById('lblInvAcuracidade').textContent = `${inv.acuracidade_pct || 100}%`;
+
+        const badge = document.getElementById('lblInvStatusBadge');
+        if (badge) {
+            badge.textContent = (inv.status === 'ajustado') ? 'Conciliado' : ((inv.status === 'finalizado') ? 'Finalizado' : 'Em Contagem');
+            badge.className = `badge ${inv.status === 'ajustado' ? 'badge-success' : 'badge-progress'} fs-xs`;
+        }
+
+        // Renderizar Lista de Itens do Inventário
+        const container = document.getElementById('itensInventarioList');
+        if (container) {
+            let html = '';
+            itens.forEach(it => {
+                const qtdSis = parseFloat(it.quantidade_sistema || 0);
+                const qtdCont = parseFloat(it.quantidade_contada || 0);
+                const diverg = parseFloat(it.divergencia || 0);
+                const displaySis = (inv.modo === 'cego' && inv.status === 'em_contagem') ? '?' : qtdSis;
+
+                let cardClass = 'status-pendente';
+                let diffHtml = '';
+
+                if (it.status === 'contado' || (qtdCont > 0 && diverg == 0)) {
+                    cardClass = 'status-conferido';
+                    diffHtml = '<span class="diff-badge diff-zero"><i class="fa-solid fa-check"></i> Correto</span>';
+                } else if (diverg !== 0 && it.status !== 'pendente') {
+                    cardClass = 'status-divergente';
+                    diffHtml = (diverg > 0)
+                        ? `<span class="diff-badge diff-pos">+${diverg} Sobra</span>`
+                        : `<span class="diff-badge diff-neg">${diverg} Falta</span>`;
+                }
+
+                html += `
+                    <div class="item-picking-card ${cardClass}" id="inv-item-${it.codigo_produto}">
+                        <div class="item-details">
+                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.35rem;">
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <h4 class="mb-0">${it.descricao}</h4>
+                                    <span class="loc-badge loc-badge-picking"><i class="fa-solid fa-location-dot"></i> ${it.local_codigo}</span>
+                                </div>
+                                ${diffHtml}
+                            </div>
+                            <div class="item-meta">
+                                <span>SKU: <strong class="font-mono text-primary">${it.codigo_produto}</strong></span>
+                                <span>EAN: <strong class="font-mono text-success">${it.ean || '---'}</strong></span>
+                                <span>Posição: Rua ${it.rua} • Est ${it.estante} • Nv ${it.nivel}</span>
+                            </div>
+                        </div>
+                        <div class="item-count-box">
+                            <span class="conferido-num" style="color: var(--bs-primary);">${qtdCont}</span>
+                            <span class="separator">/</span>
+                            <span class="total-num">${displaySis}</span>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        // Renderizar Logs de Bipagem
+        const logContainer = document.getElementById('listaLogsInventarioContainer');
+        if (logContainer) {
+            if (logs.length === 0) {
+                logContainer.innerHTML = '<span class="text-muted fs-xs text-center d-block py-2">Nenhuma bipagem realizada ainda.</span>';
+            } else {
+                let logHtml = '<ul class="list-unstyled fs-xs mb-0">';
+                logs.forEach(l => {
+                    logHtml += `<li class="py-1 border-bottom d-flex justify-content-between"><span><i class="fa-solid fa-barcode text-primary me-1"></i><strong>${l.codigo_bipado}</strong></span><span class="text-muted">${l.timestamp?.substring(11, 19) || ''}</span></li>`;
+                });
+                logHtml += '</ul>';
+                logContainer.innerHTML = logHtml;
+            }
+        }
+    },
+
+    async biparInventario(codigoBipado, tipoLeitura = 'camera') {
+        if (!this.inventarioAtivo || !this.inventarioAtivo.inventario) return;
+
+        const invId = this.inventarioAtivo.inventario.id;
+        const localCodigo = document.getElementById('invLocalAtivo')?.value.trim() || '';
+        const banner = document.getElementById('scanStatusBannerInv');
+
+        try {
+            const res = await fetch('api/inventario.php?action=bipar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    inventario_id: invId,
+                    local_codigo: localCodigo,
+                    codigo_bipado: codigoBipado,
+                    quantidade: 1,
+                    tipo_leitura: tipoLeitura,
+                    operador: this.operador
+                })
+            });
+            const data = await res.json();
+
+            if (!data.success) {
+                window.soundEngine.playError();
+                this.toast(data.error || 'Erro ao registrar bipagem de inventário.', 'error');
+                if (banner) {
+                    banner.style.display = 'block';
+                    banner.className = 'alert alert-danger fs-xs py-2 px-3 mb-2 text-center';
+                    banner.innerHTML = `<i class="fa-solid fa-xmark"></i> ${data.error || 'Erro na contagem!'}`;
+                }
+                return;
+            }
+
+            window.soundEngine.playSuccess();
+            this.inventarioAtivo = data;
+            this.renderizarContagemInventario(data);
+
+            if (banner) {
+                banner.style.display = 'block';
+                banner.className = 'alert alert-success fs-xs py-2 px-3 mb-2 text-center';
+                banner.innerHTML = `<i class="fa-solid fa-check"></i> ${data.message || 'Contagem registrada!'}`;
+            }
+
+            // Animar card
+            const card = document.getElementById(`inv-item-${data.item_bipado}`);
+            if (card) {
+                card.classList.add('just-scanned');
+                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => card.classList.remove('just-scanned'), 700);
+            }
+        } catch (err) {
+            console.error('Erro na bipagem de inventário:', err);
+            this.toast('Erro ao registrar bipagem.', 'error');
+        }
+    },
+
+    biparInventarioManual() {
+        const inp = document.getElementById('inputManualBarcodeInv');
+        const code = inp?.value.trim();
+        if (code) {
+            this.biparInventario(code, 'manual');
+            inp.value = '';
+        }
+    },
+
+    async startCameraInventario() {
+        const btnStart = document.getElementById('btnStartCamInv');
+        const btnStop = document.getElementById('btnStopCamInv');
+        const laser = document.getElementById('scanLaserInv');
+
+        const started = await this.scanner.startCamera('readerInv');
+        if (started) {
+            if (btnStart) btnStart.style.display = 'none';
+            if (btnStop) btnStop.style.display = 'block';
+            if (laser) laser.style.display = 'block';
+        } else {
+            this.toast('Não foi possível iniciar a câmera de inventário.', 'error');
+        }
+    },
+
+    async finalizarContagemInventario() {
+        if (!this.inventarioAtivo || !this.inventarioAtivo.inventario) return;
+        const invId = this.inventarioAtivo.inventario.id;
+
+        try {
+            const res = await fetch('api/inventario.php?action=finalizar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: invId })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                window.soundEngine.playOrderComplete();
+                this.toast(data.message || 'Contagem finalizada! Relatório de divergências pronto.', 'success');
+                this.abrirRelatorioConciliacao(invId);
+            } else {
+                this.toast(data.error || 'Erro ao finalizar inventário.', 'error');
+            }
+        } catch (err) {
+            console.error('Erro ao finalizar inventário:', err);
+            this.toast('Erro ao finalizar contagem.', 'error');
+        }
+    },
+
+    abrirRelatorioConciliacao(invId) {
+        this.iniciarContagemInventario(invId).then(() => {
+            this.modalAjusteInventario();
+        });
+    },
+
+    modalAjusteInventario() {
+        if (!this.inventarioAtivo || !this.inventarioAtivo.itens) {
+            this.toast('Nenhum inventário ativo.', 'warning');
+            return;
+        }
+
+        const inv = this.inventarioAtivo.inventario;
+        const itens = this.inventarioAtivo.itens;
+        const tbody = document.getElementById('tabelaConciliacaoBody');
+        const lblAcur = document.getElementById('lblConciliacaoAcuracidade');
+
+        if (lblAcur) lblAcur.textContent = `Acuracidade: ${inv.acuracidade_pct || 100}%`;
+
+        if (tbody) {
+            let html = '';
+            itens.forEach(it => {
+                const qtdSis = parseFloat(it.quantidade_sistema || 0);
+                const qtdCont = parseFloat(it.quantidade_contada || 0);
+                const diverg = parseFloat(it.divergencia || 0);
+
+                let diffBadge = '<span class="badge badge-success"><i class="fa-solid fa-check"></i> Exato</span>';
+                if (diverg > 0) {
+                    diffBadge = `<span class="badge bg-primary-light text-primary">+${diverg} (Sobra)</span>`;
+                } else if (diverg < 0) {
+                    diffBadge = `<span class="badge bg-danger-light text-danger">${diverg} (Falta)</span>`;
+                }
+
+                html += `
+                    <tr>
+                        <td>
+                            <span class="loc-badge loc-badge-picking"><i class="fa-solid fa-location-dot"></i> ${it.local_codigo}</span>
+                        </td>
+                        <td>
+                            <strong>${it.descricao}</strong><br>
+                            <span class="text-muted fs-xs font-mono">SKU: ${it.codigo_produto}</span>
+                        </td>
+                        <td class="text-center font-mono fw-bold">${qtdSis}</td>
+                        <td class="text-center font-mono fw-bold text-primary">${qtdCont}</td>
+                        <td class="text-center font-mono">${diffBadge}</td>
+                        <td><span class="badge bg-body-secondary text-dark fs-xs">${it.status}</span></td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        document.getElementById('modalConciliacaoInventario').classList.add('active');
+    },
+
+    async confirmarAjustesInventario() {
+        if (!this.inventarioAtivo || !this.inventarioAtivo.inventario) return;
+        const invId = this.inventarioAtivo.inventario.id;
+
+        if (!confirm('Deseja realmente aplicar a conciliação e atualizar os saldos de todas as prateleiras no WMS?')) return;
+
+        try {
+            const res = await fetch('api/inventario.php?action=aprovar_ajustes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: invId })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                this.toast(data.message || 'Saldos atualizados com sucesso!', 'success');
+                this.fecharModais();
+                this.fecharContagemInventario();
+            } else {
+                this.toast(data.error || 'Erro ao aplicar conciliação.', 'error');
+            }
+        } catch (err) {
+            console.error('Erro ao aprovar ajustes:', err);
+            this.toast('Erro ao processar conciliação de saldos.', 'error');
+        }
+    },
+
+    async cancelarInventario(id) {
+        if (!confirm('Deseja realmente cancelar este inventário?')) return;
+
+        try {
+            const res = await fetch('api/inventario.php?action=cancelar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                this.toast('Inventário cancelado.', 'info');
+                this.carregarInventarios();
+            } else {
+                this.toast(data.error || 'Erro ao cancelar inventário.', 'error');
+            }
+        } catch (err) {
+            console.error('Erro ao cancelar inventário:', err);
+            this.toast('Erro ao cancelar inventário.', 'error');
+        }
+    },
+
+    // =========================================================================
+    // MÓDULO 10: GESTÃO DE DEVOLUÇÕES & LOGÍSTICA REVERSA (RETURNS MANAGEMENT)
+    // =========================================================================
+    devolucoesCache: [],
+    devolucaoAtiva: null,
+
+    async carregarDevolucoes() {
+        const busca = document.getElementById('filtroDevBusca')?.value || '';
+        const status = document.getElementById('filtroDevStatus')?.value || '';
+        const motivo = document.getElementById('filtroDevMotivo')?.value || '';
+
+        const tbody = document.getElementById('devolucoesTableBody');
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center py-4 text-muted">
+                        <i class="fa-solid fa-spinner fa-spin fa-2x mb-2"></i><br>Carregando devoluções e logística reversa...
+                    </td>
+                </tr>
+            `;
+        }
+
+        try {
+            const params = new URLSearchParams({ busca, status, motivo, limite: 100 });
+            const res = await fetch(`api/devolucoes.php?action=listar&${params.toString()}`);
+            const data = await res.json();
+
+            if (!data.success) {
+                if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">${data.error || 'Erro ao carregar devoluções.'}</td></tr>`;
+                return;
+            }
+
+            this.devolucoesCache = data.devolucoes || [];
+
+            // Atualizar KPIs
+            if (data.stats) {
+                const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+                setVal('kpiDevTotal', data.stats.total || 0);
+                setVal('kpiDevRecebidos', data.stats.recebidos || 0);
+                setVal('kpiDevInspecao', data.stats.em_inspecao || 0);
+                setVal('kpiDevConcluidos', data.stats.concluidos || 0);
+            }
+
+            if (!this.devolucoesCache || this.devolucoesCache.length === 0) {
+                if (tbody) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">
+                                <i class="fa-solid fa-box-open fa-2x mb-2 opacity-50"></i><br>Nenhuma ordem de devolução encontrada.
+                            </td>
+                        </tr>
+                    `;
+                }
+                return;
+            }
+
+            let html = '';
+            this.devolucoesCache.forEach(dev => {
+                const statusBadge = {
+                    'recebido': '<span class="badge badge-pending"><i class="fa-regular fa-clock me-1"></i> Aguardando Triagem</span>',
+                    'em_inspecao': '<span class="badge badge-progress"><i class="fa-solid fa-spinner fa-spin me-1"></i> Em Inspeção</span>',
+                    'concluido': '<span class="badge badge-success"><i class="fa-solid fa-check me-1"></i> Concluído (Reestocado)</span>',
+                    'rejeitado': '<span class="badge bg-danger-light text-danger"><i class="fa-solid fa-ban me-1"></i> Rejeitado</span>'
+                }[dev.status] || `<span class="badge badge-pending">${dev.status}</span>`;
+
+                const motivoLabel = {
+                    'arrependimento': 'Arrependimento (7 dias)',
+                    'defeito': 'Defeito de Fábrica',
+                    'avaria_transporte': 'Avaria no Transporte',
+                    'produto_errado': 'Produto Errado',
+                    'insucesso_entrega': 'Endereço Não Localizado',
+                    'outro': 'Outro Motivo'
+                }[dev.motivo_principal] || dev.motivo_principal;
+
+                const dataFmt = dev.criado_em ? new Date(dev.criado_em).toLocaleDateString('pt-BR') : '';
+
+                html += `
+                    <tr>
+                        <td>
+                            <strong>${dev.numero_pedido_origem ? `Pedido #${dev.numero_pedido_origem}` : 'Devolução Avulsa'}</strong>
+                        </td>
+                        <td>
+                            <strong>${dev.cliente_nome || 'Cliente'}</strong>
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary-light text-dark mb-1">${motivoLabel}</span>
+                            ${dev.codigo_rastreio ? `<br><span class="text-muted fs-xs font-mono"><i class="fa-solid fa-truck me-1"></i>${dev.codigo_rastreio}</span>` : ''}
+                        </td>
+                        <td>
+                            <span class="fw-bold">${dev.total_itens || 0}</span> item(ns) (${dev.total_unidades || 0} un)
+                        </td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            <span class="fs-xs text-muted">${dataFmt} • <i class="fa-solid fa-user me-1"></i>${dev.operador || 'Operador'}</span>
+                        </td>
+                        <td class="text-end">
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-alt-primary" onclick="App.abrirInspecaoDevolucaoCompleta(${dev.id})" title="Inspecionar & Reestocar">
+                                    <i class="fa-solid fa-microscope me-1"></i> Triagem
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            if (tbody) tbody.innerHTML = html;
+        } catch (e) {
+            console.error('Erro ao carregar devoluções:', e);
+            if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">Erro de conexão ao carregar devoluções.</td></tr>`;
+        }
+    },
+
+    limparFiltrosDevolucoes() {
+        const b = document.getElementById('filtroDevBusca'); if (b) b.value = '';
+        const s = document.getElementById('filtroDevStatus'); if (s) s.value = '';
+        const m = document.getElementById('filtroDevMotivo'); if (m) m.value = '';
+        this.carregarDevolucoes();
+    },
+
+    modalNovaDevolucao() {
+        document.getElementById('formNovaDevolucao')?.reset();
+        const tbody = document.getElementById('tabelaItensDevolucaoBody');
+        if (tbody) {
+            tbody.innerHTML = '';
+            this.adicionarLinhaItemDevolucao();
+        }
+        document.getElementById('modalNovaDevolucao').classList.add('active');
+        document.getElementById('devNumPedido')?.focus();
+    },
+
+    async buscarPedidoOrigemDevolucao() {
+        const num = document.getElementById('devNumPedido')?.value.trim();
+        if (!num) return;
+
+        try {
+            const res = await fetch(`api/devolucoes.php?action=buscar_pedido_origem&numero_pedido=${num}`);
+            const data = await res.json();
+
+            if (data.success && data.pedido) {
+                if (data.pedido.cliente) {
+                    document.getElementById('devClienteNome').value = data.pedido.cliente;
+                }
+
+                if (data.itens && data.itens.length > 0) {
+                    const tbody = document.getElementById('tabelaItensDevolucaoBody');
+                    if (tbody) tbody.innerHTML = '';
+                    data.itens.forEach(it => {
+                        this.adicionarLinhaItemDevolucao(it);
+                    });
+                    this.toast(`Pedido #${num} localizado com ${data.itens.length} produto(s).`, 'success');
+                }
+            } else {
+                this.toast('Pedido não encontrado no histórico. Preencha os itens manualmente.', 'info');
+            }
+        } catch (e) {
+            console.error('Erro ao buscar pedido:', e);
+        }
+    },
+
+    adicionarLinhaItemDevolucao(item = null) {
+        const tbody = document.getElementById('tabelaItensDevolucaoBody');
+        if (!tbody) return;
+
+        const cod = item ? item.codigo_produto : '';
+        const ean = item ? item.ean : '';
+        const desc = item ? item.descricao : '';
+        const qtd = item ? item.quantidade : 1;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><input type="text" class="form-control form-control-sm font-mono dev-sku" value="${cod}" placeholder="SKU" required></td>
+            <td><input type="text" class="form-control form-control-sm font-mono dev-ean" value="${ean}" placeholder="EAN"></td>
+            <td><input type="text" class="form-control form-control-sm dev-desc" value="${desc}" placeholder="Descrição"></td>
+            <td><input type="number" class="form-control form-control-sm dev-qtd" value="${qtd}" min="1" step="1" required></td>
+            <td>
+                <select class="form-select form-select-sm dev-cond">
+                    <option value="perfeito">Perfeito</option>
+                    <option value="embalagem_violada">Emb. Violada</option>
+                    <option value="avariado">Avariado</option>
+                    <option value="incompleto">Incompleto</option>
+                </select>
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-xs btn-alt-danger" onclick="this.closest('tr').remove()" title="Remover"><i class="fa-solid fa-trash"></i></button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    },
+
+    async salvarNovaDevolucao(e) {
+        if (e) e.preventDefault();
+
+        const numero_pedido_origem = document.getElementById('devNumPedido').value.trim();
+        const cliente_nome = document.getElementById('devClienteNome').value.trim();
+        const codigo_rastreio = document.getElementById('devRastreio').value.trim();
+        const motivo_principal = document.getElementById('devMotivoPrincipal').value;
+        const observacoes = document.getElementById('devObservacoes').value.trim();
+
+        const rows = document.querySelectorAll('#tabelaItensDevolucaoBody tr');
+        const itens = [];
+
+        rows.forEach(r => {
+            const cod = r.querySelector('.dev-sku')?.value.trim();
+            const ean = r.querySelector('.dev-ean')?.value.trim();
+            const desc = r.querySelector('.dev-desc')?.value.trim();
+            const qtd = parseFloat(r.querySelector('.dev-qtd')?.value || 1);
+            const cond = r.querySelector('.dev-cond')?.value || 'perfeito';
+
+            if (cod && qtd > 0) {
+                itens.push({
+                    codigo_produto: cod, ean, descricao: desc || cod, quantidade: qtd, condicao: cond, motivo: motivo_principal
+                });
+            }
+        });
+
+        if (itens.length === 0) {
+            this.toast('Adicione pelo menos um item válido na devolução.', 'warning');
+            return;
+        }
+
+        try {
+            const res = await fetch('api/devolucoes.php?action=criar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ numero_pedido_origem, cliente_nome, codigo_rastreio, motivo_principal, observacoes, itens })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                this.toast(data.message || 'Devolução registrada com sucesso!', 'success');
+                this.fecharModais();
+                this.carregarDevolucoes();
+            } else {
+                this.toast(data.error || 'Erro ao registrar devolução.', 'error');
+            }
+        } catch (err) {
+            console.error('Erro ao salvar devolução:', err);
+            this.toast('Erro de conexão ao salvar devolução.', 'error');
+        }
+    },
+
+    async abrirInspecaoDevolucaoCompleta(devId) {
+        try {
+            const res = await fetch(`api/devolucoes.php?action=obter&id=${devId}`);
+            const data = await res.json();
+
+            if (data.success && data.itens && data.itens.length > 0) {
+                this.devolucaoAtiva = data;
+                const primeiroItem = data.itens[0];
+                this.modalInspecionarDevolucaoItem(
+                    primeiroItem.id,
+                    primeiroItem.descricao,
+                    primeiroItem.condicao,
+                    primeiroItem.motivo,
+                    primeiroItem.acao_destinatario,
+                    primeiroItem.local_armazenagem_id
+                );
+            } else {
+                this.toast('Devolução sem itens para inspeção.', 'info');
+            }
+        } catch (e) {
+            console.error('Erro ao abrir inspeção:', e);
+        }
+    },
+
+    async modalInspecionarDevolucaoItem(itemId, nomeProduto, condicao, motivo, acao, localId) {
+        document.getElementById('inspecaoItemId').value = itemId;
+        document.getElementById('lblInspecaoProdutoNome').textContent = nomeProduto || 'Produto';
+        document.getElementById('inspecaoCondicao').value = condicao || 'perfeito';
+        document.getElementById('inspecaoMotivo').value = motivo || '';
+        document.getElementById('inspecaoAcao').value = acao || 'reestocar_picking';
+
+        // Carregar opções de locais
+        const selLoc = document.getElementById('inspecaoLocalId');
+        if (selLoc) {
+            if (this.locaisCache.length === 0) {
+                await this.carregarLocais();
+            }
+            selLoc.innerHTML = '<option value="">-- Selecionar Posição de Guarda --</option>';
+            this.locaisCache.forEach(l => {
+                selLoc.innerHTML += `<option value="${l.id}">[${l.tipo.toUpperCase()}] ${l.codigo} (Rua ${l.rua})</option>`;
+            });
+            if (localId) selLoc.value = localId;
+        }
+
+        this.aoMudarCondicaoInspecao();
+        document.getElementById('modalInspecaoDevolucao').classList.add('active');
+    },
+
+    aoMudarCondicaoInspecao() {
+        const cond = document.getElementById('inspecaoCondicao')?.value;
+        const acao = document.getElementById('inspecaoAcao');
+
+        if (cond === 'perfeito') {
+            if (acao) acao.value = 'reestocar_picking';
+        } else if (cond === 'embalagem_violada') {
+            if (acao) acao.value = 'reestocar_pulmao';
+        } else if (cond === 'avariado') {
+            if (acao) acao.value = 'quarentena';
+        } else if (cond === 'incompleto') {
+            if (acao) acao.value = 'quarentena';
+        }
+    },
+
+    async salvarInspecaoItem(e) {
+        if (e) e.preventDefault();
+
+        const item_id = document.getElementById('inspecaoItemId').value;
+        const condicao = document.getElementById('inspecaoCondicao').value;
+        const acao_destinatario = document.getElementById('inspecaoAcao').value;
+        const local_armazenagem_id = document.getElementById('inspecaoLocalId').value;
+        const motivo = document.getElementById('inspecaoMotivo').value.trim();
+
+        try {
+            const res = await fetch('api/devolucoes.php?action=inspecionar_item', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ item_id, condicao, acao_destinatario, local_armazenagem_id, motivo })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                this.toast(data.message || 'Inspeção concluída!', 'success');
+                this.fecharModais();
+
+                // Se houver devolução ativa, perguntar se deseja reestocar agora
+                if (this.devolucaoAtiva && this.devolucaoAtiva.devolucao) {
+                    if (confirm('Deseja concluir a reestocagem de todos os itens e atualizar o estoque agora?')) {
+                        this.concluirReestocagemDevolucao(this.devolucaoAtiva.devolucao.id);
+                    } else {
+                        this.carregarDevolucoes();
+                    }
+                } else {
+                    this.carregarDevolucoes();
+                }
+            } else {
+                this.toast(data.error || 'Erro ao salvar inspeção.', 'error');
+            }
+        } catch (err) {
+            console.error('Erro ao salvar inspeção:', err);
+            this.toast('Erro de conexão ao salvar inspeção.', 'error');
+        }
+    },
+
+    async concluirReestocagemDevolucao(devId) {
+        try {
+            const res = await fetch('api/devolucoes.php?action=concluir_reestocagem', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ devolucao_id: devId })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                window.soundEngine.playSuccess();
+                this.toast(data.message || 'Itens reestocados com sucesso!', 'success');
+                this.carregarDevolucoes();
+                this.carregarLocais();
+            } else {
+                this.toast(data.error || 'Erro ao concluir reestocagem.', 'error');
+            }
+        } catch (err) {
+            console.error('Erro ao concluir reestocagem:', err);
+            this.toast('Erro ao processar reestocagem.', 'error');
         }
     },
 

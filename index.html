@@ -85,6 +85,18 @@
                             </a>
                         </li>
                         <li class="nav-main-item">
+                            <a class="nav-main-link nav-btn" data-view="inventario" id="btnNavInventario" href="javascript:void(0)" onclick="App.navigate('inventario')">
+                                <i class="nav-main-link-icon fa-solid fa-clipboard-check"></i>
+                                <span class="nav-main-link-name">Inventário Cíclico</span>
+                            </a>
+                        </li>
+                        <li class="nav-main-item">
+                            <a class="nav-main-link nav-btn" data-view="devolucoes" id="btnNavDevolucoes" href="javascript:void(0)" onclick="App.navigate('devolucoes')">
+                                <i class="nav-main-link-icon fa-solid fa-rotate-left"></i>
+                                <span class="nav-main-link-name">Devoluções & Reversa</span>
+                            </a>
+                        </li>
+                        <li class="nav-main-item">
                             <a class="nav-main-link nav-btn" data-view="historico" href="javascript:void(0)" onclick="App.navigate('historico')">
                                 <i class="nav-main-link-icon fa-solid fa-clock-rotate-left"></i>
                                 <span class="nav-main-link-name">Histórico de Conferências</span>
@@ -1395,6 +1407,369 @@
                     </div>
                 </div>
             </section>
+
+            <!-- ===============================================================
+                 VIEW 7: INVENTÁRIO CÍCLICO & CONTAGEM DE ESTOQUE (ONEUI)
+                 =============================================================== -->
+            <section id="view-inventario" class="view-section">
+                <!-- Hero Header -->
+                <div class="bg-body-light">
+                    <div class="content content-full">
+                        <div class="d-flex flex-column flex-sm-row justify-content-sm-between align-items-sm-center py-2">
+                            <div class="flex-grow-1">
+                                <h1 class="h3 fw-bold mb-1">Inventário Cíclico & Contagem de Estoque</h1>
+                                <h2 class="fs-sm lh-base fw-medium text-muted mb-0">Contagem cega de prateleiras, apuração de divergências e acuracidade (IRA)</h2>
+                            </div>
+                            <div class="mt-3 mt-sm-0 ms-sm-3 d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-primary" onclick="App.modalNovoInventario()">
+                                    <i class="fa-solid fa-plus me-1"></i> Nova Contagem Cíclica
+                                </button>
+                                <button type="button" class="btn btn-sm btn-alt-secondary" onclick="App.carregarInventarios()">
+                                    <i class="fa-solid fa-rotate me-1"></i> Atualizar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista de Inventários -->
+                <div id="inventarioListaContainer" class="content">
+                    <!-- KPI Row -->
+                    <div class="row">
+                        <div class="col-6 col-md-3">
+                            <div class="block block-rounded block-link-shadow text-center">
+                                <div class="block-content block-content-full">
+                                    <div class="fs-2 fw-bold text-primary" id="kpiInvTotal">0</div>
+                                    <div class="fs-xs fw-semibold text-muted text-uppercase">Total Inventários</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="block block-rounded block-link-shadow text-center">
+                                <div class="block-content block-content-full">
+                                    <div class="fs-2 fw-bold text-warning" id="kpiInvEmContagem">0</div>
+                                    <div class="fs-xs fw-semibold text-muted text-uppercase">Em Contagem</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="block block-rounded block-link-shadow text-center">
+                                <div class="block-content block-content-full">
+                                    <div class="fs-2 fw-bold text-success" id="kpiInvFinalizados">0</div>
+                                    <div class="fs-xs fw-semibold text-muted text-uppercase">Concluídos / Ajustados</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="block block-rounded block-link-shadow text-center">
+                                <div class="block-content block-content-full">
+                                    <div class="fs-2 fw-bold text-info"><span id="kpiInvAcuracidadeMedia">100</span>%</div>
+                                    <div class="fs-xs fw-semibold text-muted text-uppercase">Acuracidade Média (IRA)</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filtros -->
+                    <div class="block block-rounded">
+                        <div class="block-content block-content-full">
+                            <div class="row g-2">
+                                <div class="col-12 col-md-6">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
+                                        <input type="text" id="filtroInvBusca" class="form-control" placeholder="Buscar por título, armazém, rua ou operador..." oninput="App.carregarInventarios()">
+                                    </div>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    <select id="filtroInvStatus" class="form-select form-select-sm" onchange="App.carregarInventarios()">
+                                        <option value="">Todos os Status</option>
+                                        <option value="pendente">Pendente</option>
+                                        <option value="em_contagem">Em Contagem</option>
+                                        <option value="finalizado">Finalizado (Aguardando Ajuste)</option>
+                                        <option value="ajustado">Ajustado / Conciliado</option>
+                                        <option value="cancelado">Cancelado</option>
+                                    </select>
+                                </div>
+                                <div class="col-6 col-md-2">
+                                    <button class="btn btn-sm btn-alt-secondary w-100" onclick="App.limparFiltrosInventario()">
+                                        <i class="fa-solid fa-filter-circle-xmark me-1"></i> Limpar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tabela de Inventários -->
+                    <div class="block block-rounded">
+                        <div class="block-content block-content-full p-0">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-vcenter table-hover fs-sm mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Título / Identificação</th>
+                                            <th>Abrangência / Tipo</th>
+                                            <th>Modo</th>
+                                            <th>Posições / SKUs</th>
+                                            <th>Acuracidade (IRA)</th>
+                                            <th>Status</th>
+                                            <th>Operador</th>
+                                            <th class="text-end">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="inventariosTableBody">
+                                        <!-- Gerado via JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Painel de Contagem Ativa com Scanner -->
+                <div id="inventarioAtivoContainer" class="content" style="display: none;">
+                    <div class="row items-push">
+                        <!-- Coluna Esquerda: Leitor Scanner e Controle -->
+                        <div class="col-12 col-xl-4">
+                            <!-- Leitor Câmera -->
+                            <div class="block block-rounded mb-3">
+                                <div class="block-header block-header-default py-2">
+                                    <h3 class="block-title fs-sm">
+                                        <i class="fa-solid fa-camera text-primary me-1"></i> Leitor Câmera (Contagem)
+                                    </h3>
+                                    <div class="block-options">
+                                        <button class="btn btn-sm btn-alt-secondary" id="btnTorchInv" onclick="App.toggleTorch()" title="Lanterna">
+                                            <i class="fa-solid fa-bolt"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="block-content p-2">
+                                    <div class="camera-container mb-2">
+                                        <div id="readerInv"></div>
+                                        <div class="scan-laser" id="scanLaserInv" style="display: none;"></div>
+                                    </div>
+                                    <button class="btn btn-sm btn-success w-100" id="btnStartCamInv" onclick="App.startCameraInventario()">
+                                        <i class="fa-solid fa-play me-1"></i> Ativar Câmera
+                                    </button>
+                                    <button class="btn btn-sm btn-danger w-100" id="btnStopCamInv" style="display: none;" onclick="App.stopCamera()">
+                                        <i class="fa-solid fa-stop me-1"></i> Parar Câmera
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Bipagem Manual e Posição Selecionada -->
+                            <div class="block block-rounded mb-3">
+                                <div class="block-header block-header-default py-2">
+                                    <h3 class="block-title fs-sm">
+                                        <i class="fa-solid fa-barcode text-primary me-1"></i> Bipagem & Posição
+                                    </h3>
+                                </div>
+                                <div class="block-content p-3">
+                                    <div class="mb-3">
+                                        <label class="form-label fs-xs" for="invLocalAtivo"><i class="fa-solid fa-location-dot me-1"></i> Posição Física Atual</label>
+                                        <input type="text" id="invLocalAtivo" class="form-control form-control-sm font-mono fw-bold" placeholder="Ex: A-01-01-01">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label fs-xs" for="inputManualBarcodeInv"><i class="fa-solid fa-tag me-1"></i> Código EAN / SKU do Produto</label>
+                                        <div class="input-group input-group-sm">
+                                            <input type="text" id="inputManualBarcodeInv" class="form-control font-mono" placeholder="Bipe ou digite o EAN...">
+                                            <button class="btn btn-primary" type="button" onclick="App.biparInventarioManual()">
+                                                <i class="fa-solid fa-check"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div id="scanStatusBannerInv" style="display: none;"></div>
+                                </div>
+                            </div>
+
+                            <!-- Logs Recentes de Contagem -->
+                            <div class="block block-rounded">
+                                <div class="block-header block-header-default py-2">
+                                    <h3 class="block-title fs-sm">
+                                        <i class="fa-solid fa-list-check text-primary me-1"></i> Bipagens Recentes
+                                    </h3>
+                                </div>
+                                <div class="block-content p-2" id="listaLogsInventarioContainer" style="max-height: 220px; overflow-y: auto;">
+                                    <!-- Logs via JS -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Coluna Direita: Cabeçalho do Inventário e Lista de Itens -->
+                        <div class="col-12 col-xl-8">
+                            <div class="block block-rounded mb-3">
+                                <div class="block-header block-header-default">
+                                    <div>
+                                        <h3 class="block-title d-flex align-items-center gap-2">
+                                            <span id="lblInvTitulo">Inventário</span>
+                                            <span class="badge badge-progress fs-xs" id="lblInvStatusBadge">Em Contagem</span>
+                                        </h3>
+                                        <span class="text-muted fs-xs d-block mt-1">
+                                            <i class="fa-solid fa-warehouse me-1"></i> <span id="lblInvAbrangencia">Armazém Principal</span> • Modo: <strong id="lblInvModo">Cego</strong>
+                                        </span>
+                                    </div>
+                                    <div class="block-options d-flex gap-1 flex-wrap">
+                                        <button class="btn btn-sm btn-alt-secondary" onclick="App.fecharContagemInventario()" title="Voltar à Lista">
+                                            <i class="fa-solid fa-arrow-left me-1"></i> Voltar
+                                        </button>
+                                        <button class="btn btn-sm btn-alt-info" onclick="App.modalAjusteInventario()" id="btnAjusteEstoqueInv" title="Relatório de Divergências">
+                                            <i class="fa-solid fa-scale-balanced me-1"></i> Relatório de Divergências
+                                        </button>
+                                        <button class="btn btn-sm btn-success" id="btnFinalizarInv" onclick="App.finalizarContagemInventario()">
+                                            <i class="fa-solid fa-circle-check me-1"></i> Concluir Contagem
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="block-content p-3 border-top">
+                                    <div class="row text-center fs-sm">
+                                        <div class="col-4">
+                                            <span class="text-muted fs-xs d-block">Total Contado</span>
+                                            <strong class="fs-base text-primary" id="lblInvTotalContado">0</strong> un
+                                        </div>
+                                        <div class="col-4">
+                                            <span class="text-muted fs-xs d-block">Posições Mapeadas</span>
+                                            <strong class="fs-base" id="lblInvTotalPosicoes">0</strong>
+                                        </div>
+                                        <div class="col-4">
+                                            <span class="text-muted fs-xs d-block">Acuracidade Atual</span>
+                                            <strong class="fs-base text-success" id="lblInvAcuracidade">100%</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Lista de Itens do Inventário -->
+                            <div class="items-card-list" id="itensInventarioList">
+                                <!-- Gerado via JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===============================================================
+                 VIEW 8: GESTÃO DE DEVOLUÇÕES & REVERSA (ONEUI)
+                 =============================================================== -->
+            <section id="view-devolucoes" class="view-section">
+                <!-- Hero Header -->
+                <div class="bg-body-light">
+                    <div class="content content-full">
+                        <div class="d-flex flex-column flex-sm-row justify-content-sm-between align-items-sm-center py-2">
+                            <div class="flex-grow-1">
+                                <h1 class="h3 fw-bold mb-1">Gestão de Devoluções & Logística Reversa</h1>
+                                <h2 class="fs-sm lh-base fw-medium text-muted mb-0">Triagem de pacotes retornados, inspeção de qualidade de produto e reestocagem</h2>
+                            </div>
+                            <div class="mt-3 mt-sm-0 ms-sm-3 d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-primary" onclick="App.modalNovaDevolucao()">
+                                    <i class="fa-solid fa-plus me-1"></i> Nova Devolução
+                                </button>
+                                <button type="button" class="btn btn-sm btn-alt-secondary" onclick="App.carregarDevolucoes()">
+                                    <i class="fa-solid fa-rotate me-1"></i> Atualizar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="content">
+                    <!-- KPI Row -->
+                    <div class="row">
+                        <div class="col-6 col-md-3">
+                            <div class="block block-rounded block-link-shadow text-center">
+                                <div class="block-content block-content-full">
+                                    <div class="fs-2 fw-bold text-primary" id="kpiDevTotal">0</div>
+                                    <div class="fs-xs fw-semibold text-muted text-uppercase">Total Devoluções</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="block block-rounded block-link-shadow text-center">
+                                <div class="block-content block-content-full">
+                                    <div class="fs-2 fw-bold text-warning" id="kpiDevRecebidos">0</div>
+                                    <div class="fs-xs fw-semibold text-muted text-uppercase">Aguardando Triagem</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="block block-rounded block-link-shadow text-center">
+                                <div class="block-content block-content-full">
+                                    <div class="fs-2 fw-bold text-info" id="kpiDevInspecao">0</div>
+                                    <div class="fs-xs fw-semibold text-muted text-uppercase">Em Inspeção</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="block block-rounded block-link-shadow text-center">
+                                <div class="block-content block-content-full">
+                                    <div class="fs-2 fw-bold text-success" id="kpiDevConcluidos">0</div>
+                                    <div class="fs-xs fw-semibold text-muted text-uppercase">Reestocadas / Concluídas</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filtros -->
+                    <div class="block block-rounded">
+                        <div class="block-content block-content-full">
+                            <div class="row g-2">
+                                <div class="col-12 col-md-5">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
+                                        <input type="text" id="filtroDevBusca" class="form-control" placeholder="Buscar por pedido, rastreio ou cliente..." oninput="App.carregarDevolucoes()">
+                                    </div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <select id="filtroDevStatus" class="form-select form-select-sm" onchange="App.carregarDevolucoes()">
+                                        <option value="">Todos os Status</option>
+                                        <option value="recebido">Recebido (Pendente Triagem)</option>
+                                        <option value="em_inspecao">Em Inspeção</option>
+                                        <option value="concluido">Concluído (Reestocado)</option>
+                                        <option value="rejeitado">Rejeitado</option>
+                                    </select>
+                                </div>
+                                <div class="col-6 col-md-2">
+                                    <select id="filtroDevMotivo" class="form-select form-select-sm" onchange="App.carregarDevolucoes()">
+                                        <option value="">Todos os Motivos</option>
+                                        <option value="arrependimento">Arrependimento (7 dias)</option>
+                                        <option value="defeito">Defeito / Avaria de Fábrica</option>
+                                        <option value="avaria_transporte">Avaria no Transporte</option>
+                                        <option value="produto_errado">Produto Errado / Incompatível</option>
+                                        <option value="insucesso_entrega">Insucesso de Entrega / Endereço</option>
+                                    </select>
+                                </div>
+                                <div class="col-12 col-md-2">
+                                    <button class="btn btn-sm btn-alt-secondary w-100" onclick="App.limparFiltrosDevolucoes()">
+                                        <i class="fa-solid fa-filter-circle-xmark me-1"></i> Limpar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tabela de Devoluções -->
+                    <div class="block block-rounded">
+                        <div class="block-content block-content-full p-0">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-vcenter table-hover fs-sm mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Pedido Original</th>
+                                            <th>Cliente</th>
+                                            <th>Rastreio / Motivo</th>
+                                            <th>Itens & Qtd</th>
+                                            <th>Status da Devolução</th>
+                                            <th>Data / Operador</th>
+                                            <th class="text-end">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="devolucoesTableBody">
+                                        <!-- Gerado via JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </main>
 
         <!-- ===================================================================
@@ -2021,6 +2396,241 @@
                 <button type="button" class="btn btn-sm btn-primary" onclick="App.imprimirEtiquetasLocais()">
                     <i class="fa-solid fa-print me-1"></i> Imprimir Etiquetas
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Novo Inventário Cíclico -->
+    <div class="modal-overlay" id="modalNovoInventario">
+        <div class="modal-card" style="max-width: 580px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-clipboard-list text-primary"></i> Nova Contagem de Inventário Cíclico</h3>
+                <button class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="formNovoInventario" onsubmit="App.salvarNovoInventario(event)">
+                    <div class="mb-3">
+                        <label class="form-label fs-sm" for="invTitulo"><i class="fa-solid fa-heading me-1"></i> Título / Referência da Contagem</label>
+                        <input type="text" id="invTitulo" class="form-control" placeholder="Ex: Inventário Rua A - Curva A" required autofocus>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fs-sm" for="invTipo"><i class="fa-solid fa-filter me-1"></i> Tipo de Abrangência</label>
+                            <select id="invTipo" class="form-select" onchange="App.alternarCamposTipoInventario()">
+                                <option value="localizacao">Por Faixa de Ruas / Posições</option>
+                                <option value="sku">Por Lista de SKUs Específicos</option>
+                                <option value="total">Inventário Geral do Armazém</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fs-sm" for="invModo"><i class="fa-solid fa-eye-slash me-1"></i> Modo de Contagem</label>
+                            <select id="invModo" class="form-select">
+                                <option value="cego">Contagem Cega (Sem qtd esperada visível)</option>
+                                <option value="aberto">Contagem Aberta (Exibe saldo do sistema)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="invCamposLocalizacao" class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label fs-sm" for="invArmazem">Armazém</label>
+                            <input type="text" id="invArmazem" class="form-control" value="Principal">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fs-sm" for="invRuaInicio">Rua Inicial</label>
+                            <input type="text" id="invRuaInicio" class="form-control font-mono text-center" value="A" maxlength="3">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fs-sm" for="invRuaFim">Rua Final</label>
+                            <input type="text" id="invRuaFim" class="form-control font-mono text-center" value="A" maxlength="3">
+                        </div>
+                    </div>
+                    <div id="invCamposSku" class="mb-3" style="display: none;">
+                        <label class="form-label fs-sm" for="invSkusText"><i class="fa-solid fa-barcode me-1"></i> SKUs a Inventariar (1 por linha)</label>
+                        <textarea id="invSkusText" class="form-control font-mono fs-xs" rows="3" placeholder="RP0001&#10;RP0002&#10;RP0003"></textarea>
+                    </div>
+                    <div class="modal-footer p-0 pt-3 bg-transparent border-0">
+                        <button type="button" class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()">Cancelar</button>
+                        <button type="submit" class="btn btn-sm btn-primary">
+                            <i class="fa-solid fa-check me-1"></i> Criar Ordem de Contagem
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Relatório de Divergências & Conciliação de Inventário -->
+    <div class="modal-overlay" id="modalConciliacaoInventario">
+        <div class="modal-card" style="max-width: 900px; width: 95%; max-height: 90vh;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-scale-balanced text-primary"></i> Relatório de Divergências & Conciliação</h3>
+                <button class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" style="overflow-y: auto;">
+                <div class="alert alert-info fs-xs mb-3 d-flex justify-content-between align-items-center">
+                    <span><i class="fa-solid fa-circle-info me-1"></i> Compare a contagem física com o saldo registrado no sistema e aprove os ajustes.</span>
+                    <span class="badge bg-primary fs-sm" id="lblConciliacaoAcuracidade">Acuracidade: 100%</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-striped table-vcenter fs-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Posição</th>
+                                <th>Produto (SKU)</th>
+                                <th class="text-center">Saldo Sistema</th>
+                                <th class="text-center">Contado Físico</th>
+                                <th class="text-center">Divergência</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelaConciliacaoBody">
+                            <!-- Gerado dinamicamente via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()">Fechar</button>
+                <button type="button" class="btn btn-sm btn-success" id="btnAprovarAjustesEstoque" onclick="App.confirmarAjustesInventario()">
+                    <i class="fa-solid fa-check-double me-1"></i> Conciliar & Atualizar Saldos no WMS
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Nova Devolução -->
+    <div class="modal-overlay" id="modalNovaDevolucao">
+        <div class="modal-card" style="max-width: 750px; width: 95%; max-height: 90vh;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-box-open text-primary"></i> Registrar Entrada de Devolução</h3>
+                <button class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" style="overflow-y: auto;">
+                <form id="formNovaDevolucao" onsubmit="App.salvarNovaDevolucao(event)">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label fs-sm" for="devNumPedido"><i class="fa-solid fa-file-invoice me-1"></i> Pedido de Origem</label>
+                            <div class="input-group input-group-sm">
+                                <input type="number" id="devNumPedido" class="form-control" placeholder="Nº Pedido">
+                                <button type="button" class="btn btn-primary" onclick="App.buscarPedidoOrigemDevolucao()">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fs-sm" for="devClienteNome"><i class="fa-solid fa-user me-1"></i> Nome do Cliente</label>
+                            <input type="text" id="devClienteNome" class="form-control form-control-sm" placeholder="Nome do comprador" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fs-sm" for="devRastreio"><i class="fa-solid fa-truck me-1"></i> Código de Rastreio (Reversa)</label>
+                            <input type="text" id="devRastreio" class="form-control form-control-sm font-mono" placeholder="Ex: QB123456789BR">
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fs-sm" for="devMotivoPrincipal"><i class="fa-solid fa-circle-question me-1"></i> Motivo da Devolução</label>
+                            <select id="devMotivoPrincipal" class="form-select form-select-sm" required>
+                                <option value="arrependimento">Arrependimento / Desistência (7 dias)</option>
+                                <option value="defeito">Defeito de Fabricação / Vício</option>
+                                <option value="avaria_transporte">Avaria / Caixa Amassada no Transporte</option>
+                                <option value="produto_errado">Produto Errado / Modelo Incompatível</option>
+                                <option value="insucesso_entrega">Insucesso de Entrega / Endereço Não Localizado</option>
+                                <option value="outro">Outro Motivo</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fs-sm" for="devObservacoes"><i class="fa-solid fa-comment me-1"></i> Observações</label>
+                            <input type="text" id="devObservacoes" class="form-control form-control-sm" placeholder="Detalhes do cliente...">
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label class="form-label fs-sm mb-0 fw-bold"><i class="fa-solid fa-boxes-stacked me-1"></i> Itens Devolvidos</label>
+                        <button type="button" class="btn btn-xs btn-alt-primary" onclick="App.adicionarLinhaItemDevolucao()">
+                            <i class="fa-solid fa-plus me-1"></i> Adicionar Item
+                        </button>
+                    </div>
+
+                    <div class="table-responsive mb-3" style="max-height: 220px; overflow-y: auto;">
+                        <table class="table table-sm table-bordered fs-xs mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>SKU / Código</th>
+                                    <th>EAN</th>
+                                    <th>Descrição</th>
+                                    <th style="width: 80px;">Qtd</th>
+                                    <th style="width: 120px;">Condição</th>
+                                    <th style="width: 40px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelaItensDevolucaoBody">
+                                <!-- Linhas dinâmicas -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="modal-footer p-0 pt-3 bg-transparent border-0">
+                        <button type="button" class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()">Cancelar</button>
+                        <button type="submit" class="btn btn-sm btn-primary">
+                            <i class="fa-solid fa-check me-1"></i> Registrar Devolução
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Triagem & Inspeção de Item Devolvido -->
+    <div class="modal-overlay" id="modalInspecaoDevolucao">
+        <div class="modal-card" style="max-width: 620px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-microscope text-primary"></i> Inspeção de Qualidade & Destinação</h3>
+                <button class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="formInspecaoItem" onsubmit="App.salvarInspecaoItem(event)">
+                    <input type="hidden" id="inspecaoItemId" value="">
+                    <div class="mb-3">
+                        <label class="form-label fs-sm">Produto a Inspecionar</label>
+                        <div class="p-2 border rounded bg-body-light fs-sm" id="lblInspecaoProdutoNome">---</div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fs-sm" for="inspecaoCondicao"><i class="fa-solid fa-shield-halved me-1"></i> Condição Física do Item</label>
+                            <select id="inspecaoCondicao" class="form-select" onchange="App.aoMudarCondicaoInspecao()" required>
+                                <option value="perfeito">Perfeito Estado / Sem Uso</option>
+                                <option value="embalagem_violada">Embalagem Violada (Produto OK)</option>
+                                <option value="avariado">Avariado / Danificado</option>
+                                <option value="incompleto">Incompleto / Faltando Acessórios</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fs-sm" for="inspecaoAcao"><i class="fa-solid fa-arrow-right-arrow-left me-1"></i> Ação / Destinação</label>
+                            <select id="inspecaoAcao" class="form-select" required>
+                                <option value="reestocar_picking">Reestocar no Picking Principal</option>
+                                <option value="reestocar_pulmao">Reestocar no Pulmão / Reserva</option>
+                                <option value="quarentena">Enviar para Quarentena / Avarias</option>
+                                <option value="descarte">Descarte / Baixa por Perda</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3" id="campoInspecaoLocal">
+                        <label class="form-label fs-sm" for="inspecaoLocalId"><i class="fa-solid fa-warehouse me-1"></i> Posição Física de Destino</label>
+                        <select id="inspecaoLocalId" class="form-select">
+                            <!-- Opções dinâmicas de locais -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fs-sm" for="inspecaoMotivo"><i class="fa-solid fa-comment me-1"></i> Parecer Técnico do Conferente</label>
+                        <textarea id="inspecaoMotivo" class="form-control" rows="2" placeholder="Observações sobre o estado do item..."></textarea>
+                    </div>
+                    <div class="modal-footer p-0 pt-3 bg-transparent border-0">
+                        <button type="button" class="btn btn-sm btn-alt-secondary" onclick="App.fecharModais()">Cancelar</button>
+                        <button type="submit" class="btn btn-sm btn-primary">
+                            <i class="fa-solid fa-check me-1"></i> Salvar Inspeção
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

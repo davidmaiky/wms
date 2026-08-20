@@ -215,6 +215,90 @@ function initSchema(PDO $pdo) {
             FOREIGN KEY (recebimento_id) REFERENCES recebimentos(id) ON DELETE CASCADE
         );
 
+        -- =====================================================================
+        -- FASE 2: INVENTÁRIO CÍCLICO & CONTAGEM DE ESTOQUE (CYCLE COUNTING)
+        -- =====================================================================
+        CREATE TABLE IF NOT EXISTS inventarios (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            titulo TEXT NOT NULL,
+            tipo TEXT DEFAULT 'localizacao', -- localizacao, sku, total
+            modo TEXT DEFAULT 'cego', -- cego (sem qtd esperada visível), aberto
+            armazem TEXT DEFAULT 'Principal',
+            rua_inicio TEXT,
+            rua_fim TEXT,
+            status TEXT DEFAULT 'pendente', -- pendente, em_contagem, finalizado, cancelado, ajustado
+            total_itens_esperados REAL DEFAULT 0,
+            total_itens_contados REAL DEFAULT 0,
+            acuracidade_pct REAL DEFAULT 100.0,
+            operador TEXT,
+            observacoes TEXT,
+            criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+            finalizado_em DATETIME
+        );
+
+        CREATE TABLE IF NOT EXISTS inventario_itens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            inventario_id INTEGER NOT NULL,
+            local_id INTEGER NOT NULL,
+            codigo_produto TEXT NOT NULL,
+            ean TEXT,
+            descricao TEXT,
+            quantidade_sistema REAL DEFAULT 0,
+            quantidade_contada REAL DEFAULT 0,
+            divergencia REAL DEFAULT 0, -- quantidade_contada - quantidade_sistema
+            status TEXT DEFAULT 'pendente', -- pendente, contado, ajustado, divergente
+            contado_por TEXT,
+            contado_em DATETIME,
+            FOREIGN KEY (inventario_id) REFERENCES inventarios(id) ON DELETE CASCADE,
+            FOREIGN KEY (local_id) REFERENCES locais_armazenagem(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS logs_bipagem_inventario (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            inventario_id INTEGER NOT NULL,
+            local_id INTEGER,
+            codigo_bipado TEXT,
+            codigo_produto_identificado TEXT,
+            tipo_leitura TEXT, -- camera, pistola, manual
+            operador TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (inventario_id) REFERENCES inventarios(id) ON DELETE CASCADE
+        );
+
+        -- =====================================================================
+        -- FASE 2: GESTÃO DE DEVOLUÇÕES & LOGÍSTICA REVERSA (RETURNS MANAGEMENT)
+        -- =====================================================================
+        CREATE TABLE IF NOT EXISTS devolucoes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            numero_pedido_origem INTEGER,
+            cliente_nome TEXT,
+            codigo_rastreio TEXT,
+            motivo_principal TEXT, -- arrependimento, defeito, produto_errado, avaria_transporte, insucesso_entrega, outro
+            status TEXT DEFAULT 'recebido', -- recebido, em_inspecao, concluido, rejeitado
+            operador TEXT,
+            observacoes TEXT,
+            criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+            atualizado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS devolucao_itens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            devolucao_id INTEGER NOT NULL,
+            codigo_produto TEXT NOT NULL,
+            ean TEXT,
+            descricao TEXT,
+            quantidade REAL DEFAULT 1,
+            condicao TEXT DEFAULT 'perfeito', -- perfeito, avariado, incompleto, embalagem_violada
+            motivo TEXT,
+            acao_destinatario TEXT DEFAULT 'reestocar_picking', -- reestocar_picking, reestocar_pulmao, quarentena, descarte
+            local_armazenagem_id INTEGER,
+            status TEXT DEFAULT 'pendente', -- pendente, reestocado, descartado, devolvido_fornecedor
+            inspecionado_por TEXT,
+            inspecionado_em DATETIME,
+            FOREIGN KEY (devolucao_id) REFERENCES devolucoes(id) ON DELETE CASCADE,
+            FOREIGN KEY (local_armazenagem_id) REFERENCES locais_armazenagem(id) ON DELETE SET NULL
+        );
+
         CREATE INDEX IF NOT EXISTS idx_conferencias_num ON conferencias(numero_pedido);
         CREATE INDEX IF NOT EXISTS idx_conferencias_status ON conferencias(status);
         CREATE INDEX IF NOT EXISTS idx_itens_conferencia ON conferencia_itens(conferencia_id);
@@ -235,6 +319,14 @@ function initSchema(PDO $pdo) {
         CREATE INDEX IF NOT EXISTS idx_receb_itens_rec ON recebimento_itens(recebimento_id);
         CREATE INDEX IF NOT EXISTS idx_receb_itens_cod ON recebimento_itens(codigo_produto);
         CREATE INDEX IF NOT EXISTS idx_receb_itens_ean ON recebimento_itens(ean);
+        CREATE INDEX IF NOT EXISTS idx_inv_status ON inventarios(status);
+        CREATE INDEX IF NOT EXISTS idx_inv_itens_inv ON inventario_itens(inventario_id);
+        CREATE INDEX IF NOT EXISTS idx_inv_itens_local ON inventario_itens(local_id);
+        CREATE INDEX IF NOT EXISTS idx_inv_itens_cod ON inventario_itens(codigo_produto);
+        CREATE INDEX IF NOT EXISTS idx_dev_status ON devolucoes(status);
+        CREATE INDEX IF NOT EXISTS idx_dev_ped ON devolucoes(numero_pedido_origem);
+        CREATE INDEX IF NOT EXISTS idx_dev_itens_dev ON devolucao_itens(devolucao_id);
+        CREATE INDEX IF NOT EXISTS idx_dev_itens_cod ON devolucao_itens(codigo_produto);
     ");
 
     // Garantir migração da coluna permissoes se a tabela já existia antes
@@ -365,6 +457,55 @@ function getCatalogoPermissoes(): array {
             'categoria' => 'Recebimento',
             'icone' => 'fa-solid fa-boxes-packing'
         ],
+        'inventario_visualizar' => [
+            'id' => 'inventario_visualizar',
+            'nome' => 'Visualizar Inventários',
+            'descricao' => 'Consultar contagens de estoque, relatórios de acuracidade e divergências.',
+            'categoria' => 'Inventário',
+            'icone' => 'fa-solid fa-clipboard-list'
+        ],
+        'inventario_criar' => [
+            'id' => 'inventario_criar',
+            'nome' => 'Criar Ordem de Inventário',
+            'descricao' => 'Gerar sessões de contagem cíclica por localização ou curva de produtos.',
+            'categoria' => 'Inventário',
+            'icone' => 'fa-solid fa-folder-plus'
+        ],
+        'inventario_contar' => [
+            'id' => 'inventario_contar',
+            'nome' => 'Contagem Cega & Scanner',
+            'descricao' => 'Escanear e registrar contagens de produtos nas posições físicas do armazém.',
+            'categoria' => 'Inventário',
+            'icone' => 'fa-solid fa-barcode'
+        ],
+        'inventario_aprovar' => [
+            'id' => 'inventario_aprovar',
+            'nome' => 'Aprovar Conciliação & Ajuste',
+            'descricao' => 'Aprovar divergências e ajustar saldos de estoque automaticamente no WMS.',
+            'categoria' => 'Inventário',
+            'icone' => 'fa-solid fa-check-double'
+        ],
+        'devolucao_visualizar' => [
+            'id' => 'devolucao_visualizar',
+            'nome' => 'Visualizar Devoluções',
+            'descricao' => 'Consultar ordens de logística reversa e histórico de devoluções.',
+            'categoria' => 'Devoluções',
+            'icone' => 'fa-solid fa-rotate-left'
+        ],
+        'devolucao_criar' => [
+            'id' => 'devolucao_criar',
+            'nome' => 'Registrar Devolução',
+            'descricao' => 'Cadastrar entrada de devolução vinculada a pedido de venda ou rastreio.',
+            'categoria' => 'Devoluções',
+            'icone' => 'fa-solid fa-box-open'
+        ],
+        'devolucao_inspecionar' => [
+            'id' => 'devolucao_inspecionar',
+            'nome' => 'Triagem, Inspeção & Reestocagem',
+            'descricao' => 'Inspecionar avarias, definir motivo e direcionar item para picking ou quarentena.',
+            'categoria' => 'Devoluções',
+            'icone' => 'fa-solid fa-microscope'
+        ],
         'eans_visualizar' => [
             'id' => 'eans_visualizar',
             'nome' => 'Visualizar De-Para EAN',
@@ -443,6 +584,13 @@ function getRoleDefaultPermissions(string $funcao): array {
                 'recebimento_criar',
                 'recebimento_conferir',
                 'recebimento_armazenar',
+                'inventario_visualizar',
+                'inventario_criar',
+                'inventario_contar',
+                'inventario_aprovar',
+                'devolucao_visualizar',
+                'devolucao_criar',
+                'devolucao_inspecionar',
                 'eans_visualizar',
                 'eans_gerenciar',
                 'usuarios_visualizar',
@@ -462,6 +610,10 @@ function getRoleDefaultPermissions(string $funcao): array {
                 'recebimento_visualizar',
                 'recebimento_conferir',
                 'recebimento_armazenar',
+                'inventario_visualizar',
+                'inventario_contar',
+                'devolucao_visualizar',
+                'devolucao_inspecionar',
                 'eans_visualizar'
             ];
 
@@ -476,7 +628,10 @@ function getRoleDefaultPermissions(string $funcao): array {
                 'historico_visualizar',
                 'locais_visualizar',
                 'recebimento_visualizar',
-                'recebimento_conferir'
+                'recebimento_conferir',
+                'inventario_visualizar',
+                'inventario_contar',
+                'devolucao_visualizar'
             ];
     }
 }
