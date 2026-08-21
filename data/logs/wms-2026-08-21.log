@@ -1,0 +1,5 @@
+[2026-08-21 13:52:17] [INFO] [User: anonimo] [IP: 10.11.0.24] Login realizado com sucesso: 'david@primepro.com.br'
+[2026-08-21 13:59:00] [INFO] [User: anonimo] [IP: 10.11.0.24] Login realizado com sucesso: 'david@primepro.com.br'
+[2026-08-21 14:16:44] [INFO] [User: anonimo] [IP: 10.11.0.24] Login realizado com sucesso: 'estoque@visathair.com.br'
+[2026-08-21 14:17:16] [WARNING] [User: estoque@visathair.com.br] [IP: 10.11.0.24] SIGE Cloud API lenta: request/pedidos/pesquisar (4541.12ms)
+[2026-08-21 14:55:04] [INFO] [User: anonimo] [IP: 10.11.0.24] Login realizado com sucesso: 'estoque@visathair.com.br'
